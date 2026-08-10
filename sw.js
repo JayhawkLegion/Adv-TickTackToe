@@ -1,9 +1,12 @@
-const CACHE_NAME = "tic-tac-toe-v1";
+const CACHE_NAME = "tic-tac-toe-v2";
 const ASSETS = [
   "./",
   "./index.html",
+  "./settings.html",
   "./style.css",
   "./script.js",
+  "./settings.js",
+  "./pieces.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

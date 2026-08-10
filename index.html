@@ -26,7 +26,13 @@
   </div>
 
   <main class="game">
-    <h1>Tic-Tac-Toe</h1>
+    <div class="title-row">
+      <h1>Tic-Tac-Toe</h1>
+      <a href="settings.html" class="settings-link" aria-label="Settings">
+        <svg viewBox="0 0 24 24" class="gear-icon" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94a7.14 7.14 0 0 0 .06-.94 7.14 7.14 0 0 0-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.55-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.14 7.14 0 0 0-.06.94c0 .32.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.42.32.6.22l2.39-.96c.49.39 1.03.7 1.62.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.59-.24 1.13-.55 1.62-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
+      </a>
+    </div>
+
     <p id="status" class="status" aria-live="polite">Player X's turn</p>
 
     <div id="board" class="board" role="grid" aria-label="Tic-tac-toe board">
@@ -41,15 +47,27 @@
       <button class="cell" data-index="8" role="gridcell" aria-label="Row 3, Column 3"></button>
     </div>
 
-    <div class="scoreboard">
-      <div class="score"><span>X wins</span><strong id="scoreX">0</strong></div>
-      <div class="score"><span>Draws</span><strong id="scoreDraw">0</strong></div>
-      <div class="score"><span>O wins</span><strong id="scoreO">0</strong></div>
+    <div id="trays" class="trays" hidden>
+      <div class="tray" id="trayR" data-color="R">
+        <span class="tray-label">Red</span>
+        <div class="tray-slots" id="traySlotsR"></div>
+      </div>
+      <div class="tray" id="trayB" data-color="B">
+        <span class="tray-label">Blue</span>
+        <div class="tray-slots" id="traySlotsB"></div>
+      </div>
     </div>
 
-    <button id="resetBtn" class="reset-btn">New Round</button>
+    <div class="scoreboard">
+      <div class="score"><span id="scoreLabel1">X wins</span><strong id="scoreX">0</strong></div>
+      <div class="score"><span>Draws</span><strong id="scoreDraw">0</strong></div>
+      <div class="score"><span id="scoreLabel2">O wins</span><strong id="scoreO">0</strong></div>
+    </div>
+
+    <button id="resetBtn" class="reset-btn">New Game</button>
   </main>
 
+  <script src="pieces.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
