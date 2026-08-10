@@ -88,3 +88,28 @@ boardEl.querySelectorAll(".cell").forEach((cell) => {
 resetBtn.addEventListener("click", resetRound);
 
 render();
+
+// --- PWA install banner (iOS Safari has no install prompt API, so hint manually) ---
+const installBanner = document.getElementById("installBanner");
+const dismissBanner = document.getElementById("dismissBanner");
+const isStandalone =
+  window.matchMedia("(display-mode: standalone)").matches ||
+  window.navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+const bannerDismissed = localStorage.getItem("installBannerDismissed") === "true";
+
+if (isIOS && !isStandalone && !bannerDismissed) {
+  installBanner.hidden = false;
+}
+
+dismissBanner.addEventListener("click", () => {
+  installBanner.hidden = true;
+  localStorage.setItem("installBannerDismissed", "true");
+});
+
+// --- Service worker registration for offline standalone use ---
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}

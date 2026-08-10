@@ -13,17 +13,66 @@
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.install-banner {
+  position: fixed;
+  top: env(safe-area-inset-top, 0);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 0.6rem 2.2rem 0.6rem 0.8rem;
+  text-align: center;
+  z-index: 10;
+}
+
+.install-banner .share-icon {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.2em;
+}
+
+.dismiss-banner {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
 }
 
 .game {
@@ -63,7 +112,12 @@ h1 {
   font-weight: 700;
   color: var(--text);
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.cell:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 .cell:hover:not(:disabled) {
