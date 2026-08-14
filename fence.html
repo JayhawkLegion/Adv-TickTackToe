@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Fence</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fence">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game">
+    <div class="title-row">
+      <div class="menu-wrap">
+        <button id="menuBtn" class="menu-btn" aria-label="Menu" aria-expanded="false" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" class="menu-icon" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/></svg>
+        </button>
+        <div id="menuDropdown" class="menu-dropdown" hidden>
+          <a href="index.html" class="menu-item" data-page="index.html">Tic-Tac-Toe</a>
+          <a href="fence.html" class="menu-item" data-page="fence.html">Fence</a>
+        </div>
+      </div>
+
+      <h1>Fence</h1>
+    </div>
+
+    <p id="status" class="status" aria-live="polite">Player 1's turn</p>
+
+    <div id="fenceBoard" class="fence-board"></div>
+
+    <div class="scoreboard">
+      <div class="score"><span class="p1-label">Player 1</span><strong id="score1">0</strong></div>
+      <div class="score"><span class="p2-label">Player 2</span><strong id="score2">0</strong></div>
+    </div>
+
+    <button id="resetBtn" class="reset-btn">New Game</button>
+  </main>
+
+  <script src="menu.js"></script>
+  <script src="fence.js"></script>
+</body>
+</html>

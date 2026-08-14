@@ -38,9 +38,22 @@ function colorName(c) {
   return c === "R" ? "Red" : "Blue";
 }
 
+// Guarantee enough pieces to fill every board cell even if neither player ever
+// covers an existing piece: the first player may need up to 5 placements
+// (cells 1,3,5,7,9 of a 9-cell board), so pad the smallest size if needed.
+const MIN_TOTAL_PIECES = 5;
+
 function buildTray(sizeCount) {
   const tray = {};
-  for (let s = 1; s <= sizeCount; s++) tray[s] = PIECES_PER_SIZE;
+  let total = 0;
+  for (let s = 1; s <= sizeCount; s++) {
+    tray[s] = PIECES_PER_SIZE;
+    total += PIECES_PER_SIZE;
+  }
+  while (total < MIN_TOTAL_PIECES) {
+    tray[1]++;
+    total++;
+  }
   return tray;
 }
 
@@ -335,24 +348,6 @@ boardEl.querySelectorAll(".cell").forEach((cell) => {
 resetBtn.addEventListener("click", resetRound);
 
 resetRound();
-
-// --- PWA install banner (iOS Safari has no install prompt API, so hint manually) ---
-const installBanner = document.getElementById("installBanner");
-const dismissBanner = document.getElementById("dismissBanner");
-const isStandalone =
-  window.matchMedia("(display-mode: standalone)").matches ||
-  window.navigator.standalone === true;
-const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-const bannerDismissed = localStorage.getItem("installBannerDismissed") === "true";
-
-if (isIOS && !isStandalone && !bannerDismissed) {
-  installBanner.hidden = false;
-}
-
-dismissBanner.addEventListener("click", () => {
-  installBanner.hidden = true;
-  localStorage.setItem("installBannerDismissed", "true");
-});
 
 // --- Service worker registration for offline standalone use ---
 if ("serviceWorker" in navigator) {

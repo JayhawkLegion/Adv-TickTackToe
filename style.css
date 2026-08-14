@@ -39,44 +39,6 @@ body {
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-.install-banner {
-  position: fixed;
-  top: env(safe-area-inset-top, 0);
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.85rem;
-  padding: 0.6rem 2.2rem 0.6rem 0.8rem;
-  text-align: center;
-  z-index: 10;
-}
-
-.install-banner .share-icon {
-  width: 1.1em;
-  height: 1.1em;
-  vertical-align: -0.2em;
-}
-
-.dismiss-banner {
-  position: absolute;
-  right: 0.4rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-size: 1.4rem;
-  line-height: 1;
-  padding: 0.3rem 0.6rem;
-  cursor: pointer;
-}
-
 .game {
   background: var(--panel);
   padding: 2rem;
@@ -117,6 +79,60 @@ h1 {
   height: 1.4rem;
 }
 
+.menu-wrap {
+  position: absolute;
+  left: 0;
+}
+
+.menu-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  display: flex;
+  padding: 0.3rem;
+  cursor: pointer;
+}
+
+.menu-btn:hover {
+  color: var(--text);
+}
+
+.menu-icon {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.4rem;
+  background: var(--cell);
+  border-radius: 0.6rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  z-index: 20;
+  min-width: 9rem;
+  text-align: left;
+}
+
+.menu-item {
+  display: block;
+  padding: 0.7rem 1rem;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.menu-item:hover {
+  background: var(--cell-hover);
+}
+
+.menu-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .status {
   margin: 0 0 1.5rem;
   min-height: 1.4em;
@@ -129,6 +145,58 @@ h1 {
   grid-template-columns: repeat(3, 1fr);
   gap: 0.6rem;
   margin: 0 auto 1.5rem;
+}
+
+.fence-board {
+  width: 100%;
+  max-width: 22rem;
+  margin: 0 auto 1.5rem;
+  background: var(--cell);
+  border-radius: 0.6rem;
+  padding: 0.5rem;
+}
+
+.fence-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.dot {
+  fill: var(--text);
+}
+
+.edge-hit {
+  stroke: transparent;
+  stroke-width: 14;
+  stroke-linecap: round;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.edge-line {
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0.25;
+  transition: opacity 0.15s ease, stroke-width 0.15s ease;
+}
+
+.edge-line.drawn {
+  stroke-width: 6;
+  opacity: 1;
+}
+
+.box-label {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.score .p1-label {
+  color: var(--red-color);
+}
+
+.score .p2-label {
+  color: var(--blue-color);
 }
 
 .cell {
@@ -196,13 +264,12 @@ h1 {
 
 .trays {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 0.6rem;
   margin-bottom: 1.5rem;
 }
 
 .tray {
-  flex: 1;
   background: var(--cell);
   border-radius: 0.6rem;
   padding: 0.5rem;
@@ -225,19 +292,21 @@ h1 {
 
 .tray-slots {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 0.35rem;
 }
 
 .tray-slot {
   position: relative;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: clamp(2rem, 14vw, 2.6rem);
+  height: clamp(2rem, 14vw, 2.6rem);
   background: var(--panel);
   border: none;
   border-radius: 0.4rem;
   padding: 0.2rem;
   touch-action: none;
+  flex: 0 0 auto;
 }
 
 .tray.active-tray .tray-slot:not(:disabled) {
