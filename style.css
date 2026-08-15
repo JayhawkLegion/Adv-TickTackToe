@@ -48,6 +48,11 @@ body {
   width: min(90vw, 420px);
 }
 
+.game.fence-page {
+  width: min(96vw, 640px);
+  padding: 1.25rem;
+}
+
 h1 {
   margin: 0;
   font-size: 1.8rem;
@@ -149,7 +154,6 @@ h1 {
 
 .fence-board {
   width: 100%;
-  max-width: 22rem;
   margin: 0 auto 1.5rem;
   background: var(--cell);
   border-radius: 0.6rem;
@@ -406,6 +410,50 @@ h1 {
 .settings-actions {
   display: flex;
   justify-content: center;
+}
+
+.size-options {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.size-option {
+  flex: 1;
+  background: var(--cell);
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.size-option:hover {
+  background: var(--cell-hover);
+}
+
+.size-option.selected {
+  border-color: var(--accent);
+  background: var(--cell-hover);
+}
+
+.fence-preview {
+  margin: 0 auto 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cell);
+  border-radius: 0.6rem;
+  padding: 0.5rem;
+  max-width: 12rem;
+}
+
+.fence-preview svg {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .scoreboard {

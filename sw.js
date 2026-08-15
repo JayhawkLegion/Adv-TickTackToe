@@ -1,15 +1,17 @@
-const CACHE_NAME = "tic-tac-toe-v3";
+const CACHE_NAME = "tic-tac-toe-v4";
 const ASSETS = [
   "./",
   "./index.html",
   "./settings.html",
   "./fence.html",
+  "./fence-settings.html",
   "./style.css",
   "./script.js",
   "./settings.js",
   "./pieces.js",
   "./menu.js",
   "./fence.js",
+  "./fence-settings.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

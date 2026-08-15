@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Settings - Fence</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fence">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game">
+    <h1>Fence Settings</h1>
+
+    <div class="setting-block">
+      <label>Grid size: <strong id="sizeLabel">5 x 5</strong> boxes</label>
+      <div class="size-options" id="sizeOptions">
+        <button class="size-option" data-size="4">4x4</button>
+        <button class="size-option" data-size="5">5x5</button>
+        <button class="size-option" data-size="6">6x6</button>
+        <button class="size-option" data-size="7">7x7</button>
+      </div>
+      <div id="preview" class="fence-preview" aria-hidden="true"></div>
+      <p class="settings-hint">
+        Choose how many boxes wide and tall the Fence board is. Bigger grids take longer to fill
+        and give a higher-scoring game.
+      </p>
+    </div>
+
+    <div class="settings-actions">
+      <button id="saveBtn" class="reset-btn">Save &amp; Back to Game</button>
+    </div>
+  </main>
+
+  <script src="fence-settings.js"></script>
+</body>
+</html>

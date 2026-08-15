@@ -1,9 +1,23 @@
-// Fence: classic dots-and-boxes on a 6x6 dot grid (5x5 = 25 boxes).
-const DOTS = 6;
-const BOXES = DOTS - 1;
+// Fence: classic dots-and-boxes. Grid size (boxes per side) is configurable
+// via fence-settings.html; the dot grid is always one bigger than that.
+const FENCE_SETTINGS_KEY = "fenceSettings";
+const DEFAULT_FENCE_SETTINGS = { gridSize: 5 };
+
+function loadFenceSettings() {
+  try {
+    const raw = localStorage.getItem(FENCE_SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_FENCE_SETTINGS };
+    return { ...DEFAULT_FENCE_SETTINGS, ...JSON.parse(raw) };
+  } catch {
+    return { ...DEFAULT_FENCE_SETTINGS };
+  }
+}
+
 const CELL = 56;
 const MARGIN = 24;
-const SIZE = MARGIN * 2 + CELL * (DOTS - 1);
+let DOTS;
+let BOXES;
+let SIZE;
 
 const boardEl = document.getElementById("fenceBoard");
 const statusEl = document.getElementById("status");
@@ -135,6 +149,11 @@ function updateScores() {
 }
 
 function newGame() {
+  const gridSize = Math.max(4, Math.min(7, Number(loadFenceSettings().gridSize) || 5));
+  BOXES = gridSize;
+  DOTS = gridSize + 1;
+  SIZE = MARGIN * 2 + CELL * (DOTS - 1);
+
   hEdges = Array.from({ length: DOTS }, () => Array(BOXES).fill(null));
   vEdges = Array.from({ length: BOXES }, () => Array(DOTS).fill(null));
   boxOwner = Array.from({ length: BOXES }, () => Array(BOXES).fill(null));
