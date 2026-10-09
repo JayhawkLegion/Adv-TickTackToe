@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Settings - Connect 4</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Connect 4">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game">
+    <h1>Connect 4 Settings</h1>
+
+    <div class="setting-block">
+      <label>Columns: <strong id="colsLabel">7</strong></label>
+      <div class="size-options" id="colOptions">
+        <button class="size-option" data-value="5">5</button>
+        <button class="size-option" data-value="6">6</button>
+        <button class="size-option" data-value="7">7</button>
+        <button class="size-option" data-value="8">8</button>
+        <button class="size-option" data-value="9">9</button>
+        <button class="size-option" data-value="10">10</button>
+      </div>
+
+      <label>Rows deep: <strong id="rowsLabel">6</strong></label>
+      <div class="size-options" id="rowOptions">
+        <button class="size-option" data-value="4">4</button>
+        <button class="size-option" data-value="5">5</button>
+        <button class="size-option" data-value="6">6</button>
+        <button class="size-option" data-value="7">7</button>
+        <button class="size-option" data-value="8">8</button>
+        <button class="size-option" data-value="9">9</button>
+      </div>
+
+      <div id="preview" class="c4-preview" aria-hidden="true"></div>
+      <p class="settings-hint">
+        Classic Connect 4 is 7 columns and 6 rows deep. A wider or deeper board makes for a longer game.
+        Changes start a new game.
+      </p>
+    </div>
+
+    <div class="settings-actions">
+      <button id="saveBtn" class="reset-btn">Save &amp; Back to Game</button>
+    </div>
+  </main>
+
+  <script src="connect4-settings.js"></script>
+</body>
+</html>

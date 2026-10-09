@@ -11,6 +11,9 @@
   --accent: #6c63ff;
   --red-color: #ef4444;
   --blue-color: #3b82f6;
+  --c4-frame: #2f5bd3;
+  --c4-red: #ef4444;
+  --c4-yellow: #facc15;
 }
 
 * {
@@ -46,6 +49,11 @@ body {
   text-align: center;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   width: min(90vw, 420px);
+}
+
+.game.c4-page {
+  width: min(96vw, 560px);
+  padding: 1.25rem;
 }
 
 .game.fence-page {
@@ -498,4 +506,117 @@ h1 {
 
 .reset-btn:hover {
   filter: brightness(1.1);
+}
+
+/* --- Connect 4 --- */
+.c4-board {
+  display: grid;
+  grid-template-columns: repeat(var(--c4-cols, 7), 1fr);
+  gap: 0.3rem;
+  margin: 0 auto 1.5rem;
+  padding: 0.45rem;
+  background: var(--c4-frame);
+  border-radius: 0.8rem;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+.c4-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s ease;
+}
+
+.c4-column:disabled {
+  cursor: default;
+}
+
+.c4-board[data-player="1"] .c4-column:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.c4-board[data-player="2"] .c4-column:hover:not(:disabled) {
+  background: rgba(250, 204, 21, 0.3);
+}
+
+.c4-slot {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.45);
+}
+
+.c4-chip {
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.2), inset 0 0 0 4px rgba(255, 255, 255, 0.12);
+}
+
+.c4-chip.p1 {
+  background: var(--c4-red);
+}
+
+.c4-chip.p2 {
+  background: var(--c4-yellow);
+}
+
+.c4-chip.dropping {
+  animation: c4-drop calc(0.12s + var(--fall) * 0.05s) cubic-bezier(0.5, 0, 1, 1);
+}
+
+@keyframes c4-drop {
+  from { transform: translateY(calc(var(--fall) * -118%)); }
+  to { transform: translateY(0); }
+}
+
+.c4-slot.win {
+  box-shadow: 0 0 0 3px var(--win), inset 0 3px 6px rgba(0, 0, 0, 0.45);
+}
+
+.c4-slot.win .c4-chip {
+  animation: c4-pulse 0.9s ease-in-out 0.3s infinite alternate;
+}
+
+@keyframes c4-pulse {
+  to { transform: scale(0.85); }
+}
+
+.status[data-player="1"] {
+  color: var(--c4-red);
+}
+
+.status[data-player="2"] {
+  color: var(--c4-yellow);
+}
+
+.score .c4-red-label {
+  color: var(--c4-red);
+}
+
+.score .c4-yellow-label {
+  color: var(--c4-yellow);
+}
+
+.size-options + label {
+  margin-top: 0.4rem;
+}
+
+.c4-preview {
+  margin: 0 auto 1rem;
+  max-width: 14rem;
+}
+
+.c4-preview svg {
+  width: 100%;
+  height: auto;
+  display: block;
 }
