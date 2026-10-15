@@ -758,10 +758,10 @@ h1 {
   width: 100%;
   aspect-ratio: 1 / 1;
   display: grid;
-  grid-template-columns: 1fr 1.5fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
   grid-template-rows: 1fr 1.5fr 1fr;
   place-items: center;
-  border: 3px solid var(--muted);
+  border: 3px solid var(--rarity-color, var(--muted));
   border-radius: 12%;
   background: linear-gradient(160deg, #474a6e, #2a2c3a);
   color: #fff;
@@ -792,6 +792,8 @@ h1 {
 
 .cc-face {
   grid-area: 2 / 2;
+  max-width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -806,6 +808,20 @@ h1 {
   font-size: 10cqw;
   font-weight: 600;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Rare and better cards carry a gem in the corner, colored by rarity. */
+.cc-gem {
+  grid-area: 1 / 1;
+  width: 12cqw;
+  height: 12cqw;
+  background: var(--rarity-color);
+  border-radius: 2cqw;
+  transform: rotate(45deg);
+  box-shadow: 0 0 0 1.5cqw rgba(0, 0, 0, 0.35), 0 0 6cqw var(--rarity-color);
 }
 
 @container (max-width: 90px) {
@@ -1127,5 +1143,219 @@ div.cc-hand-card {
 }
 
 .setting-block .cc-danger {
+  margin-top: 0.8rem;
+}
+
+/* Card Builder */
+.cc-rarity-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cc-rarity-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.6fr 1.3fr;
+  gap: 0.5rem;
+  align-items: center;
+  background: var(--cell);
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.cc-rarity-row.cc-rarity-head {
+  background: none;
+  padding: 0 0.6rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cc-rarity-name {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+  color: var(--rarity-color);
+}
+
+.cc-dot {
+  flex: 0 0 auto;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 2px;
+  background: var(--rarity-color);
+  transform: rotate(45deg);
+}
+
+.cc-pct-input {
+  position: relative;
+}
+
+.cc-pct-input::after {
+  content: "%";
+  position: absolute;
+  right: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.cc-pct-input .cc-input {
+  background: var(--panel);
+  padding: 0.4rem 1.4rem 0.4rem 0.5rem;
+  -moz-appearance: textfield;
+}
+
+.cc-pct-input .cc-input::-webkit-inner-spin-button,
+.cc-pct-input .cc-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cc-rarity-actual small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.cc-chance-total {
+  font-weight: 600;
+  margin: 0.7rem 0;
+  color: #4ade80;
+}
+
+.cc-chance-total.bad {
+  color: var(--x-color);
+}
+
+#chanceForm .reset-btn {
+  margin-top: 0.8rem;
+}
+
+.reset-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  filter: none;
+}
+
+.cc-builder {
+  text-align: left;
+}
+
+.cc-builder label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.9rem 0 0.35rem;
+}
+
+.cc-builder-card {
+  display: grid;
+  grid-template-columns: auto min(160px, 42vw) auto;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cc-builder-preview {
+  grid-area: 2 / 2;
+}
+
+.cc-sel-top { grid-area: 1 / 2; justify-self: center; }
+.cc-sel-left { grid-area: 2 / 1; }
+.cc-sel-right { grid-area: 2 / 3; }
+.cc-sel-bottom { grid-area: 3 / 2; justify-self: center; }
+
+.cc-side-select {
+  background: var(--cell);
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.35rem 0.4rem;
+  cursor: pointer;
+}
+
+.cc-side-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cc-emoji-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.45rem;
+}
+
+.cc-emoji-picks button {
+  font-size: 1.25rem;
+  line-height: 1;
+  background: var(--cell);
+  border: none;
+  border-radius: 0.4rem;
+  padding: 0.3rem 0.35rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cc-emoji-picks button:hover {
+  background: var(--cell-hover);
+}
+
+.size-option.cc-rarity-option {
+  color: var(--rarity-color);
+  font-size: 0.8rem;
+  padding: 0.6rem 0.2rem;
+}
+
+.size-option.cc-rarity-option.selected {
+  border-color: var(--rarity-color);
+}
+
+.cc-error {
+  color: var(--x-color);
+  font-size: 0.9rem;
+  margin: 0.6rem 0 0;
+}
+
+.cc-form-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.cc-secondary {
+  background: var(--cell);
+}
+
+.cc-pool-item {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cc-pool-item.editing .cc-card {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+.cc-admin-back {
+  margin-top: 1.5rem;
+}
+
+.setting-block .cc-admin-link {
   margin-top: 0.8rem;
 }

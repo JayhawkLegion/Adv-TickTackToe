@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Card Builder - Card Clash</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Card Clash">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game cc-page">
+    <h1>Card Builder</h1>
+    <p id="status" class="status" aria-live="polite">Build cards for the pool and set how often each rarity appears.</p>
+
+    <!-- Rarity chances -->
+    <h2 class="cc-heading">Rarity chance to appear</h2>
+    <form id="chanceForm">
+      <div id="rarityTable" class="cc-rarity-table">
+        <div class="cc-rarity-row cc-rarity-head">
+          <span>Rarity</span><span>Chance</span><span>Cards</span><span>Actual now</span>
+        </div>
+      </div>
+      <p id="chanceTotal" class="cc-chance-total"></p>
+      <p class="settings-hint">
+        Used whenever a card is drawn at random: new players' starter cards and the computer's hand.
+        A rarity with no cards yet can't be drawn, so its chance is shared among the others ("Actual now").
+      </p>
+      <button id="saveChancesBtn" type="submit" class="reset-btn">Save Chances</button>
+    </form>
+
+    <!-- Build / edit a card -->
+    <h2 id="formTitle" class="cc-heading">New card</h2>
+    <form id="cardForm" class="cc-builder" autocomplete="off">
+      <div class="cc-builder-card">
+        <select id="sideTop" class="cc-side-select cc-sel-top" aria-label="Top number"></select>
+        <select id="sideLeft" class="cc-side-select cc-sel-left" aria-label="Left number"></select>
+        <div id="cardPreview" class="cc-builder-preview"></div>
+        <select id="sideRight" class="cc-side-select cc-sel-right" aria-label="Right number"></select>
+        <select id="sideBottom" class="cc-side-select cc-sel-bottom" aria-label="Bottom number"></select>
+      </div>
+
+      <label for="cardName">Name</label>
+      <input id="cardName" class="cc-input" type="text" maxlength="16" placeholder="e.g. Dragon">
+
+      <label for="cardIcon">Picture (an emoji)</label>
+      <input id="cardIcon" class="cc-input" type="text" maxlength="8" placeholder="Type an emoji or tap one below">
+      <div id="emojiPicks" class="cc-emoji-picks" aria-label="Quick picks"></div>
+
+      <label>Rarity</label>
+      <div id="rarityOptions" class="size-options"></div>
+
+      <p id="formNote" class="settings-hint"></p>
+      <p id="formError" class="cc-error" hidden></p>
+
+      <div class="cc-form-actions">
+        <button id="saveCardBtn" type="submit" class="reset-btn">Add Card</button>
+        <button id="cancelEditBtn" type="button" class="reset-btn cc-secondary" hidden>Cancel</button>
+        <button id="deleteCardBtn" type="button" class="reset-btn cc-danger" hidden>Delete</button>
+      </div>
+    </form>
+
+    <!-- Everything in the pool -->
+    <h2 class="cc-heading">Card pool (<span id="poolCount">0</span>)</h2>
+    <p class="settings-hint">Tap a card to edit it.</p>
+    <div id="poolGrid" class="cc-grid cc-collection"></div>
+
+    <!-- Backup -->
+    <h2 class="cc-heading">Backup</h2>
+    <p class="settings-hint">
+      Cards you build are saved in this browser only. Export them to keep a copy or move them to another device,
+      then import that file there. Importing adds and updates cards; it never removes any.
+    </p>
+    <div class="cc-form-actions">
+      <button id="exportBtn" type="button" class="reset-btn cc-secondary">Export Cards</button>
+      <button id="importBtn" type="button" class="reset-btn cc-secondary">Import Cards</button>
+      <input id="importFile" type="file" accept=".json,application/json" hidden>
+    </div>
+
+    <div class="settings-actions cc-admin-back">
+      <a href="cards.html" class="reset-btn cc-btn-link">Back to Game</a>
+    </div>
+  </main>
+
+  <script src="cards-data.js"></script>
+  <script src="cards-admin.js"></script>
+</body>
+</html>

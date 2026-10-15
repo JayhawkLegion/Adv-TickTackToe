@@ -85,14 +85,15 @@ setupForm.addEventListener("submit", (e) => {
 function showDeck(notice) {
   showView("deck");
   deckNameEl.textContent = player.name;
+  const collection = playableCollection(player);
   const { wins, losses, draws } = player.stats;
-  deckRecordEl.textContent = `${wins}W – ${losses}L – ${draws}D · ${player.collection.length} cards`;
+  deckRecordEl.textContent = `${wins}W – ${losses}L – ${draws}D · ${collection.length} cards`;
   deckNoticeEl.hidden = !notice;
   deckNoticeEl.textContent = notice || "";
 
-  const owned = new Set(player.collection.map((c) => c.uid));
+  const owned = new Set(collection.map((c) => c.uid));
   selectedUids = player.lastHand.filter((uid) => owned.has(uid)).slice(0, HAND_SIZE);
-  if (player.collection.length === HAND_SIZE) selectedUids = player.collection.map((c) => c.uid);
+  if (collection.length === HAND_SIZE) selectedUids = collection.map((c) => c.uid);
   renderDeck();
 }
 
@@ -111,7 +112,7 @@ function renderDeck() {
 
   const count = selectedUids.length;
   playBtn.disabled = count !== HAND_SIZE;
-  if (player.collection.length < HAND_SIZE) {
+  if (playableCollection(player).length < HAND_SIZE) {
     setStatus(`You need at least ${HAND_SIZE} cards to play.`);
   } else {
     setStatus(`Choose ${HAND_SIZE} cards for your hand: ${count} / ${HAND_SIZE}`);

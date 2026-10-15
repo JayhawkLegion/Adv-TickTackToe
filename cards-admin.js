@@ -1,0 +1,400 @@
+// Card Builder (admin): add cards to the pool, edit existing ones, and set the
+// chance each rarity has of appearing when a card is drawn at random. Cards
+// and chances are saved in this browser (see savePool in cards-data.js), with
+// export/import to move them between devices.
+const EMOJI_PICKS = [
+  "🐉", "🦁", "🐯", "🐺", "🦊", "🐻", "🐼", "🐸", "🐢", "🦅", "🦉", "🐍",
+  "🦈", "🐙", "🦄", "🐝", "🦋", "🐘", "🦖", "👻", "🤖", "🧙", "⚡", "🔥",
+];
+
+const statusEl = document.getElementById("status");
+const chanceForm = document.getElementById("chanceForm");
+const rarityTableEl = document.getElementById("rarityTable");
+const chanceTotalEl = document.getElementById("chanceTotal");
+const saveChancesBtn = document.getElementById("saveChancesBtn");
+
+const formTitleEl = document.getElementById("formTitle");
+const cardForm = document.getElementById("cardForm");
+const previewEl = document.getElementById("cardPreview");
+const nameInput = document.getElementById("cardName");
+const iconInput = document.getElementById("cardIcon");
+const emojiPicksEl = document.getElementById("emojiPicks");
+const rarityOptionsEl = document.getElementById("rarityOptions");
+const formNoteEl = document.getElementById("formNote");
+const formErrorEl = document.getElementById("formError");
+const saveCardBtn = document.getElementById("saveCardBtn");
+const cancelEditBtn = document.getElementById("cancelEditBtn");
+const deleteCardBtn = document.getElementById("deleteCardBtn");
+const sideSelects = {
+  top: document.getElementById("sideTop"),
+  right: document.getElementById("sideRight"),
+  bottom: document.getElementById("sideBottom"),
+  left: document.getElementById("sideLeft"),
+};
+
+const poolCountEl = document.getElementById("poolCount");
+const poolGridEl = document.getElementById("poolGrid");
+const exportBtn = document.getElementById("exportBtn");
+const importBtn = document.getElementById("importBtn");
+const importFile = document.getElementById("importFile");
+
+let editingId = null; // id of the card being edited, or null for a new card
+let draft = blankDraft();
+
+function setStatus(text) {
+  statusEl.textContent = text;
+}
+
+function formatPct(n) {
+  return `${Number(n.toFixed(1))}%`;
+}
+
+// How many copies of each card all players on this device own.
+function ownedCounts() {
+  const counts = {};
+  Object.values(loadCardSave().players).forEach((player) => {
+    player.collection.forEach((owned) => {
+      counts[owned.cardId] = (counts[owned.cardId] || 0) + 1;
+    });
+  });
+  return counts;
+}
+
+// --- Rarity chances ---
+const chanceInputs = {};
+const countCells = {};
+const actualCells = {};
+
+function buildChanceRows() {
+  RARITY_ORDER.forEach((r) => {
+    const row = document.createElement("div");
+    row.className = "cc-rarity-row";
+    row.style.setProperty("--rarity-color", RARITIES[r].color);
+
+    const name = document.createElement("span");
+    name.className = "cc-rarity-name";
+    name.innerHTML = `<span class="cc-dot"></span>${RARITIES[r].label}`;
+
+    const inputWrap = document.createElement("span");
+    inputWrap.className = "cc-pct-input";
+    const input = document.createElement("input");
+    input.type = "number";
+    input.inputMode = "decimal";
+    input.min = "0";
+    input.max = "100";
+    input.step = "0.1";
+    input.className = "cc-input";
+    input.setAttribute("aria-label", `${RARITIES[r].label} chance (%)`);
+    inputWrap.appendChild(input);
+
+    countCells[r] = document.createElement("span");
+    actualCells[r] = document.createElement("span");
+    actualCells[r].className = "cc-rarity-actual";
+    chanceInputs[r] = input;
+    row.append(name, inputWrap, countCells[r], actualCells[r]);
+    rarityTableEl.appendChild(row);
+  });
+}
+
+function showChances(chances) {
+  RARITY_ORDER.forEach((r) => {
+    chanceInputs[r].value = chances[r];
+  });
+  updateChanceSummary();
+}
+
+function readChances() {
+  return Object.fromEntries(RARITY_ORDER.map((r) => [r, Number.parseFloat(chanceInputs[r].value)]));
+}
+
+function updateChanceSummary() {
+  const chances = readChances();
+  const filled = RARITY_ORDER.every((r) => Number.isFinite(chances[r]) && chances[r] >= 0);
+  const total = filled ? chancesTotal(chances) : NaN;
+  const ok = filled && isValidChances(chances);
+  const actual = effectiveChances(ok ? chances : RARITY_CHANCES);
+
+  RARITY_ORDER.forEach((r) => {
+    const count = CARD_POOL.filter((card) => card.rarity === r).length;
+    countCells[r].textContent = count;
+    actualCells[r].innerHTML = count
+      ? `${formatPct(actual[r])}<small>${formatPct(actual[r] / count)} per card</small>`
+      : `0%<small>no cards yet</small>`;
+  });
+
+  chanceTotalEl.classList.toggle("bad", !ok);
+  if (!filled) chanceTotalEl.textContent = "Enter a chance (0 or more) for every rarity.";
+  else if (!ok) chanceTotalEl.textContent = `Total: ${formatPct(total)}. The chances must add up to 100%.`;
+  else chanceTotalEl.textContent = "Total: 100% ✓";
+  saveChancesBtn.disabled = !ok;
+}
+
+rarityTableEl.addEventListener("input", updateChanceSummary);
+
+chanceForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const chances = readChances();
+  if (!isValidChances(chances)) return;
+  savePool(CARD_POOL, chances);
+  showChances(RARITY_CHANCES);
+  setStatus("Rarity chances saved.");
+});
+
+// --- Building and editing cards ---
+function blankDraft() {
+  return { name: "", icon: "", rarity: "normal", top: 1, right: 1, bottom: 1, left: 1 };
+}
+
+function buildFormControls() {
+  SIDES.forEach((side) => {
+    for (let n = 1; n <= 10; n++) sideSelects[side].add(new Option(n, n));
+  });
+  EMOJI_PICKS.forEach((emoji) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = emoji;
+    btn.setAttribute("aria-label", `Use ${emoji}`);
+    emojiPicksEl.appendChild(btn);
+  });
+  RARITY_ORDER.forEach((r) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "size-option cc-rarity-option";
+    btn.dataset.rarity = r;
+    btn.textContent = RARITIES[r].label;
+    btn.style.setProperty("--rarity-color", RARITIES[r].color);
+    rarityOptionsEl.appendChild(btn);
+  });
+}
+
+function renderPreview() {
+  previewEl.innerHTML = "";
+  previewEl.appendChild(
+    createCardEl({ ...draft, name: draft.name.trim() || "Name", icon: draft.icon.trim() || "❔" })
+  );
+  rarityOptionsEl.querySelectorAll(".cc-rarity-option").forEach((btn) => {
+    btn.classList.toggle("selected", btn.dataset.rarity === draft.rarity);
+  });
+}
+
+function showError(message) {
+  formErrorEl.hidden = !message;
+  formErrorEl.textContent = message || "";
+}
+
+// card: an existing card to edit, or null to start a new one.
+function loadForm(card) {
+  editingId = card ? card.id : null;
+  draft = card ? { ...card } : blankDraft();
+  nameInput.value = draft.name;
+  iconInput.value = draft.icon;
+  SIDES.forEach((side) => {
+    sideSelects[side].value = draft[side];
+  });
+  showError("");
+
+  formTitleEl.textContent = card ? `Edit card #${card.no}` : "New card";
+  saveCardBtn.textContent = card ? "Save Changes" : "Add Card";
+  cancelEditBtn.hidden = !card;
+  deleteCardBtn.hidden = true;
+  formNoteEl.textContent = "";
+
+  if (card) {
+    const owned = ownedCounts()[card.id] || 0;
+    const ownedText = owned ? ` Players own ${owned} ${owned === 1 ? "copy" : "copies"}; changes apply to them too.` : "";
+    if (BUILT_IN_BY_ID[card.id]) {
+      formNoteEl.textContent = `Built-in card, so it can be edited but not deleted.${ownedText}`;
+    } else {
+      deleteCardBtn.hidden = false;
+      deleteCardBtn.disabled = owned > 0;
+      formNoteEl.textContent = owned
+        ? `${ownedText.trim()} It can't be deleted while players own it.`
+        : "No player owns this card yet, so it can still be deleted.";
+    }
+  }
+  renderPreview();
+  renderPool();
+}
+
+cardForm.addEventListener("input", (e) => {
+  if (e.target === nameInput) draft.name = nameInput.value;
+  else if (e.target === iconInput) draft.icon = iconInput.value;
+  else return;
+  renderPreview();
+});
+
+cardForm.addEventListener("change", (e) => {
+  const side = SIDES.find((s) => sideSelects[s] === e.target);
+  if (!side) return;
+  draft[side] = Number(e.target.value);
+  renderPreview();
+});
+
+emojiPicksEl.addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  draft.icon = btn.textContent;
+  iconInput.value = draft.icon;
+  renderPreview();
+});
+
+rarityOptionsEl.addEventListener("click", (e) => {
+  const btn = e.target.closest(".cc-rarity-option");
+  if (!btn) return;
+  draft.rarity = btn.dataset.rarity;
+  renderPreview();
+});
+
+cardForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = draft.name.trim().replace(/\s+/g, " ");
+  const icon = draft.icon.trim();
+  if (!name) return showError("Give the card a name.");
+  const clash = CARD_POOL.find((c) => c.id !== editingId && c.name.toLowerCase() === name.toLowerCase());
+  if (clash) return showError(`There's already a card named ${clash.name} (#${clash.no}).`);
+  if (!icon) return showError("Pick a picture (an emoji) for the card.");
+
+  const fields = { name, icon, rarity: draft.rarity, top: draft.top, right: draft.right, bottom: draft.bottom, left: draft.left };
+  let card;
+  let pool;
+  if (editingId) {
+    card = { ...getCard(editingId), ...fields };
+    pool = CARD_POOL.map((c) => (c.id === editingId ? card : c));
+  } else {
+    card = { no: nextCardNumber(), id: newId("card_"), ...fields };
+    pool = [...CARD_POOL, card];
+  }
+  savePool(pool, RARITY_CHANCES);
+  setStatus(editingId ? `Saved changes to #${card.no} ${card.name}.` : `Added #${card.no} ${card.name} to the pool.`);
+  loadForm(null);
+  updateChanceSummary();
+});
+
+cancelEditBtn.addEventListener("click", () => {
+  loadForm(null);
+  setStatus("Edit cancelled.");
+});
+
+deleteCardBtn.addEventListener("click", () => {
+  const card = getCard(editingId);
+  if (!card || BUILT_IN_BY_ID[card.id] || ownedCounts()[card.id]) return;
+  if (!confirm(`Delete #${card.no} ${card.name} from the pool? This can't be undone.`)) return;
+  savePool(CARD_POOL.filter((c) => c.id !== card.id), RARITY_CHANCES);
+  setStatus(`Deleted ${card.name}.`);
+  loadForm(null);
+  updateChanceSummary();
+});
+
+// --- The pool ---
+function renderPool() {
+  const owned = ownedCounts();
+  poolCountEl.textContent = CARD_POOL.length;
+  poolGridEl.innerHTML = "";
+  CARD_POOL.forEach((card) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cc-collect-item cc-pool-item";
+    btn.classList.toggle("editing", card.id === editingId);
+    btn.dataset.id = card.id;
+    btn.appendChild(createCardEl(card.id));
+
+    const caption = document.createElement("div");
+    caption.className = "cc-caption";
+    const kind = BUILT_IN_BY_ID[card.id] ? "Built-in" : "Custom";
+    caption.innerHTML = `
+      <span>#${card.no} ${escapeHtml(card.name)}</span>
+      <span class="cc-muted" style="color: ${RARITIES[card.rarity].color}">${RARITIES[card.rarity].label}</span>
+      <span class="cc-muted">${kind}${owned[card.id] ? ` · owned ×${owned[card.id]}` : ""}</span>
+    `;
+    btn.appendChild(caption);
+    poolGridEl.appendChild(btn);
+  });
+}
+
+poolGridEl.addEventListener("click", (e) => {
+  const btn = e.target.closest(".cc-pool-item");
+  if (!btn) return;
+  const card = getCard(btn.dataset.id);
+  loadForm(card);
+  setStatus(`Editing #${card.no} ${card.name}.`);
+  formTitleEl.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+// --- Backup ---
+exportBtn.addEventListener("click", () => {
+  const data = {
+    app: "card-clash",
+    kind: "card-pool",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    chances: RARITY_CHANCES,
+    cards: CARD_POOL.map(cleanCard),
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "card-clash-cards.json";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setStatus(`Exported ${CARD_POOL.length} cards and the rarity chances.`);
+});
+
+importBtn.addEventListener("click", () => importFile.click());
+
+// Adds new cards and updates existing ones (matched by id); never removes any.
+// An existing card keeps its number; a new card whose number is taken gets
+// the next free one.
+importFile.addEventListener("change", async () => {
+  const file = importFile.files[0];
+  importFile.value = "";
+  if (!file) return;
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+  } catch {
+    data = null;
+  }
+  if (!data || !Array.isArray(data.cards)) {
+    setStatus("That file isn't a Card Clash card export.");
+    return;
+  }
+
+  const byId = Object.fromEntries(CARD_POOL.map((card) => [card.id, card]));
+  const usedNumbers = new Set(CARD_POOL.map((card) => card.no));
+  let nextNumber = nextCardNumber();
+  let added = 0;
+  let updated = 0;
+  const valid = data.cards.filter(isValidCard).map(cleanCard);
+  valid.forEach((card) => {
+    const existing = byId[card.id];
+    if (existing) {
+      const merged = { ...card, no: existing.no };
+      if (!sameCard(merged, existing)) {
+        byId[card.id] = merged;
+        updated++;
+      }
+      return;
+    }
+    if (usedNumbers.has(card.no)) card.no = nextNumber;
+    usedNumbers.add(card.no);
+    nextNumber = Math.max(...usedNumbers) + 1;
+    byId[card.id] = card;
+    added++;
+  });
+
+  const chances = isValidChances(data.chances) ? data.chances : RARITY_CHANCES;
+  savePool(Object.values(byId), chances);
+  const skipped = data.cards.length - valid.length;
+  setStatus(
+    `Imported ${added} new and ${updated} updated cards${skipped ? `; skipped ${skipped} invalid` : ""}.`
+  );
+  showChances(RARITY_CHANCES);
+  loadForm(null);
+});
+
+buildChanceRows();
+buildFormControls();
+showChances(RARITY_CHANCES);
+loadForm(null);

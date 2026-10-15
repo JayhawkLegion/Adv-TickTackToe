@@ -46,12 +46,12 @@ function renderStats() {
 
 function renderCollection() {
   const counts = {};
-  player.collection.forEach((owned) => {
+  playableCollection(player).forEach((owned) => {
     counts[owned.cardId] = (counts[owned.cardId] || 0) + 1;
   });
 
   collectionGridEl.innerHTML = "";
-  [...CARD_POOL].sort((a, b) => a.no - b.no).forEach((card) => {
+  CARD_POOL.forEach((card) => {
     const count = counts[card.id] || 0;
     const item = document.createElement("div");
     item.className = "cc-collect-item";
@@ -60,7 +60,7 @@ function renderCollection() {
 
     const caption = document.createElement("div");
     caption.className = "cc-caption";
-    caption.innerHTML = `<span>#${card.no} ${card.name}</span><span class="cc-muted">${RARITIES[card.rarity].label}</span>`;
+    caption.innerHTML = `<span>#${card.no} ${escapeHtml(card.name)}</span><span class="cc-muted" style="color: ${RARITIES[card.rarity].color}">${RARITIES[card.rarity].label}</span>`;
     item.appendChild(caption);
 
     const badge = document.createElement("span");
@@ -102,8 +102,9 @@ if (!player) {
   noPlayerEl.hidden = false;
 } else {
   titleEl.textContent = `${player.name}'s Collection`;
-  const unique = new Set(player.collection.map((c) => c.cardId)).size;
-  summaryEl.textContent = `${player.collection.length} cards · ${unique} of ${CARD_POOL.length} types found`;
+  const collection = playableCollection(player);
+  const unique = new Set(collection.map((c) => c.cardId)).size;
+  summaryEl.textContent = `${collection.length} cards · ${unique} of ${CARD_POOL.length} types found`;
   playerInfoEl.hidden = false;
   renderStats();
   renderCollection();

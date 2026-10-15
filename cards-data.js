@@ -1,11 +1,10 @@
-// Card Clash shared code: the card pool, the flip rule, saved player profiles
-// and card rendering. Loaded by cards.html, cards-collection.html and
-// cards-settings.html.
+// Card Clash shared code: the card pool, rarity chances, the flip rule, saved
+// player profiles and card rendering. Loaded by every Card Clash page.
 
-// Every card that can exist in the game. Add new cards here; `no` is the card
-// number and sets display order. Everything is "normal" for now — rare, epic
-// and legendary cards get added to RARITIES and the pool later.
-const CARD_POOL = [
+// The cards the game ships with. More cards are added from the Card Builder
+// (cards-admin.html); those, and any edits to these, are saved in the browser
+// and merged on top of this list. `no` is the card number and sets order.
+const BUILT_IN_CARDS = [
   { no: 1, id: "dog", name: "Dog", icon: "🐶", rarity: "normal", left: 1, top: 2, right: 3, bottom: 2 },
   { no: 2, id: "cat", name: "Cat", icon: "🐱", rarity: "normal", left: 2, top: 3, right: 1, bottom: 2 },
   { no: 3, id: "sparrow", name: "Sparrow", icon: "🐦", rarity: "normal", left: 3, top: 1, right: 1, bottom: 2 },
@@ -13,29 +12,141 @@ const CARD_POOL = [
   { no: 5, id: "mouse", name: "Mouse", icon: "🐭", rarity: "normal", left: 2, top: 2, right: 2, bottom: 1 },
 ];
 
+const RARITY_ORDER = ["normal", "rare", "epic", "legendary"];
 const RARITIES = {
-  normal: { label: "Normal" },
+  normal: { label: "Normal", color: "#9a9cb5" },
+  rare: { label: "Rare", color: "#2dd4bf" },
+  epic: { label: "Epic", color: "#c084fc" },
+  legendary: { label: "Legendary", color: "#f59e0b" },
 };
+// Chance (%) that a randomly drawn card is of each rarity. Adjustable in the
+// Card Builder; must add up to 100.
+const DEFAULT_RARITY_CHANCES = { normal: 70, rare: 20, epic: 8, legendary: 2 };
 
+const SIDES = ["top", "right", "bottom", "left"];
 const HAND_SIZE = 5;
 const STARTER_SIZE = 5;
 const HISTORY_LIMIT = 20;
 const CARD_SAVE_KEY = "cardClashSave";
+const POOL_SAVE_KEY = "cardClashPool";
+const BUILT_IN_BY_ID = Object.fromEntries(BUILT_IN_CARDS.map((card) => [card.id, card]));
 
-const CARDS_BY_ID = Object.fromEntries(CARD_POOL.map((card) => [card.id, card]));
+let CARD_POOL;
+let CARDS_BY_ID;
+let RARITY_CHANCES;
+
+function isValidCard(card) {
+  return Boolean(
+    card &&
+      typeof card.id === "string" && card.id &&
+      typeof card.name === "string" && card.name.trim() &&
+      typeof card.icon === "string" && card.icon.trim() &&
+      RARITIES[card.rarity] &&
+      Number.isInteger(card.no) && card.no > 0 &&
+      SIDES.every((side) => Number.isInteger(card[side]) && card[side] >= 1 && card[side] <= 10)
+  );
+}
+
+// Only the fields a card is made of, so nothing else ends up in saves.
+function cleanCard(card) {
+  const { no, id, name, icon, rarity, left, top, right, bottom } = card;
+  return { no, id, name, icon, rarity, left, top, right, bottom };
+}
+
+function sameCard(a, b) {
+  return JSON.stringify(cleanCard(a)) === JSON.stringify(cleanCard(b));
+}
+
+function chancesTotal(chances) {
+  return RARITY_ORDER.reduce((sum, r) => sum + chances[r], 0);
+}
+
+function isValidChances(chances) {
+  return Boolean(
+    chances &&
+      RARITY_ORDER.every((r) => typeof chances[r] === "number" && chances[r] >= 0) &&
+      Math.abs(chancesTotal(chances) - 100) < 0.01
+  );
+}
+
+function loadPoolSave() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(POOL_SAVE_KEY));
+  } catch {
+    saved = null;
+  }
+  return saved && typeof saved === "object" ? saved : {};
+}
+
+// Built-in cards, overridden or extended by the saved cards.
+function applyPool(savedCards, chances) {
+  const byId = Object.fromEntries(BUILT_IN_CARDS.map((card) => [card.id, { ...card }]));
+  (savedCards || []).filter(isValidCard).forEach((card) => {
+    byId[card.id] = cleanCard(card);
+  });
+  CARD_POOL = Object.values(byId).sort((a, b) => a.no - b.no);
+  CARDS_BY_ID = Object.fromEntries(CARD_POOL.map((card) => [card.id, card]));
+  RARITY_CHANCES = isValidChances(chances) ? { ...chances } : { ...DEFAULT_RARITY_CHANCES };
+}
+
+// Saves only custom cards and edited built-in cards, so later changes to the
+// built-in list still reach players who never edited those cards.
+function savePool(pool, chances) {
+  const cards = pool.filter((card) => !BUILT_IN_BY_ID[card.id] || !sameCard(card, BUILT_IN_BY_ID[card.id]));
+  localStorage.setItem(POOL_SAVE_KEY, JSON.stringify({ cards: cards.map(cleanCard), chances }));
+  applyPool(cards, chances);
+}
+
+function loadPool() {
+  const saved = loadPoolSave();
+  applyPool(saved.cards, saved.chances);
+}
+
+loadPool();
 
 function getCard(id) {
   return CARDS_BY_ID[id];
+}
+
+function nextCardNumber() {
+  return Math.max(0, ...CARD_POOL.map((card) => card.no)) + 1;
 }
 
 function randomItem(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// Independent draws from the pool, so duplicates are possible.
-function randomCards(count, rarity = "normal") {
-  const pool = CARD_POOL.filter((card) => card.rarity === rarity);
-  return Array.from({ length: count }, () => randomItem(pool).id);
+// The real chance of each rarity right now: a tier with no cards in the pool
+// can't be drawn, so its share is spread over the tiers that have cards.
+function effectiveChances(chances = RARITY_CHANCES, pool = CARD_POOL) {
+  const live = RARITY_ORDER.filter((r) => pool.some((card) => card.rarity === r));
+  const total = live.reduce((sum, r) => sum + chances[r], 0);
+  const result = Object.fromEntries(RARITY_ORDER.map((r) => [r, 0]));
+  live.forEach((r) => {
+    result[r] = total > 0 ? (chances[r] / total) * 100 : 100 / live.length;
+  });
+  return result;
+}
+
+function randomRarity() {
+  const chances = effectiveChances();
+  const live = RARITY_ORDER.filter((r) => chances[r] > 0);
+  let roll = Math.random() * 100;
+  for (const r of live) {
+    roll -= chances[r];
+    if (roll < 0) return r;
+  }
+  return live[live.length - 1];
+}
+
+// Each draw rolls a rarity by its chance, then picks a card of that rarity at
+// random. Draws are independent, so duplicates are possible.
+function randomCards(count) {
+  return Array.from({ length: count }, () => {
+    const rarity = randomRarity();
+    return randomItem(CARD_POOL.filter((card) => card.rarity === rarity)).id;
+  });
 }
 
 // --- Rules ---
@@ -85,7 +196,7 @@ function makeOwnedCard(cardId, source) {
 
 function normalizePlayer(player) {
   player.stats = { ...emptyStats(), ...player.stats };
-  player.collection = (player.collection || []).filter((owned) => getCard(owned.cardId));
+  player.collection = player.collection || [];
   player.lastHand = player.lastHand || [];
   player.history = player.history || [];
   // Games saved before draws existed stored `won: true/false`.
@@ -137,8 +248,14 @@ function createPlayer(data, name) {
   return player;
 }
 
+// Owned cards whose card still exists in the pool. Unknown cards stay in the
+// save (so nothing is lost if the pool fails to load) but are left out here.
+function playableCollection(player) {
+  return player.collection.filter((owned) => getCard(owned.cardId));
+}
+
 function sortedCollection(player) {
-  return [...player.collection].sort(
+  return playableCollection(player).sort(
     (a, b) => getCard(a.cardId).no - getCard(b.cardId).no || a.acquiredAt - b.acquiredAt
   );
 }
@@ -148,21 +265,32 @@ function cleanName(raw) {
 }
 
 // --- Rendering ---
-// color: "red" | "blue" for a card in play, "neutral" in collections.
-function createCardEl(cardId, color = "neutral") {
-  const card = getCard(cardId);
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
+
+// `cardOrId` is a card id or a card object (the Card Builder previews unsaved
+// cards). color: "red" | "blue" for a card in play, "neutral" otherwise.
+// Neutral cards show their rarity as the border color; every non-normal card
+// also gets a rarity gem in its top-left corner.
+function createCardEl(cardOrId, color = "neutral") {
+  const card = typeof cardOrId === "string" ? getCard(cardOrId) : cardOrId;
+  const rarity = RARITIES[card.rarity];
   const el = document.createElement("div");
   el.className = `cc-card ${color}`;
   el.dataset.rarity = card.rarity;
+  el.style.setProperty("--rarity-color", rarity.color);
   el.setAttribute("role", "img");
   el.setAttribute(
     "aria-label",
-    `${card.name}: top ${card.top}, right ${card.right}, bottom ${card.bottom}, left ${card.left}`
+    `${card.name}, ${rarity.label}: top ${card.top}, right ${card.right}, bottom ${card.bottom}, left ${card.left}`
   );
+  const gem = card.rarity === "normal" ? "" : `<span class="cc-gem" title="${rarity.label}"></span>`;
   el.innerHTML = `
+    ${gem}
     <span class="cc-num cc-top">${card.top}</span>
     <span class="cc-num cc-left">${card.left}</span>
-    <span class="cc-face"><span class="cc-icon">${card.icon}</span><span class="cc-name">${card.name}</span></span>
+    <span class="cc-face"><span class="cc-icon">${escapeHtml(card.icon)}</span><span class="cc-name">${escapeHtml(card.name)}</span></span>
     <span class="cc-num cc-right">${card.right}</span>
     <span class="cc-num cc-bottom">${card.bottom}</span>
   `;
