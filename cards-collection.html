@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Collection - Card Clash</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Card Clash">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game cc-page">
+    <h1 id="collectionTitle">Collection</h1>
+    <p id="collectionSummary" class="status"></p>
+
+    <div id="noPlayer" hidden>
+      <p class="cc-note">No player yet. Start Card Clash to create one and get your starter cards.</p>
+    </div>
+
+    <div id="playerInfo" hidden>
+      <h2 class="cc-heading">Stats</h2>
+      <div id="statsGrid" class="cc-stats"></div>
+
+      <h2 class="cc-heading">Cards</h2>
+      <div id="collectionGrid" class="cc-grid cc-collection"></div>
+
+      <h2 class="cc-heading">Recent games</h2>
+      <ul id="historyList" class="cc-history"></ul>
+    </div>
+
+    <div class="settings-actions">
+      <a href="cards.html" class="reset-btn cc-btn-link">Back to Game</a>
+    </div>
+  </main>
+
+  <script src="cards-data.js"></script>
+  <script src="cards-collection.js"></script>
+</body>
+</html>

@@ -620,3 +620,502 @@ h1 {
   height: auto;
   display: block;
 }
+
+/* --- Card Clash --- */
+.game.cc-page {
+  width: min(96vw, 480px);
+  padding: 1.25rem;
+}
+
+.cc-page [hidden] {
+  display: none !important;
+}
+
+/* Room for two lines so the board doesn't jump when a message wraps. */
+.cc-page .status {
+  margin-bottom: 0.8rem;
+  min-height: 2.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status[data-color="red"] {
+  color: var(--red-color);
+}
+
+.status[data-color="blue"] {
+  color: var(--blue-color);
+}
+
+.cc-note {
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0 0 1rem;
+}
+
+.cc-muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.cc-notice {
+  background: rgba(108, 99, 255, 0.18);
+  border: 1px solid var(--accent);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  margin: 0 0 0.8rem;
+}
+
+.cc-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cc-input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  background: var(--cell);
+  border: 2px solid transparent;
+  border-radius: 0.6rem;
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+  padding: 0.65rem 0.8rem;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.cc-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cc-profile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--cell);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.8rem;
+  text-align: left;
+}
+
+.cc-profile-name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.cc-link {
+  color: #a9a4ff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cc-link:hover {
+  text-decoration: underline;
+}
+
+.cc-rules {
+  text-align: left;
+  margin-top: 1.2rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.cc-rules summary {
+  cursor: pointer;
+  color: var(--text);
+  text-align: center;
+}
+
+.cc-rules ul {
+  padding-left: 1.2rem;
+  line-height: 1.45;
+}
+
+.cc-red-text {
+  color: var(--red-color);
+  font-weight: 700;
+}
+
+.cc-blue-text {
+  color: var(--blue-color);
+  font-weight: 700;
+}
+
+/* A card: four side numbers around a picture. Sizes scale with the card. */
+.cc-card {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  grid-template-rows: 1fr 1.5fr 1fr;
+  place-items: center;
+  border: 3px solid var(--muted);
+  border-radius: 12%;
+  background: linear-gradient(160deg, #474a6e, #2a2c3a);
+  color: #fff;
+  font-weight: 800;
+  line-height: 1;
+  overflow: hidden;
+}
+
+.cc-card.red {
+  border-color: var(--red-color);
+  background: linear-gradient(160deg, #c2414b, #6b1d26);
+}
+
+.cc-card.blue {
+  border-color: var(--blue-color);
+  background: linear-gradient(160deg, #3c6fd8, #1b326e);
+}
+
+.cc-num {
+  font-size: 19cqw;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.cc-top { grid-area: 1 / 2; }
+.cc-left { grid-area: 2 / 1; }
+.cc-right { grid-area: 2 / 3; }
+.cc-bottom { grid-area: 3 / 2; }
+
+.cc-face {
+  grid-area: 2 / 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3cqw;
+}
+
+.cc-icon {
+  font-size: 32cqw;
+}
+
+.cc-name {
+  font-size: 10cqw;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@container (max-width: 90px) {
+  .cc-name {
+    display: none;
+  }
+}
+
+.cc-card.cc-placed {
+  animation: cc-place 0.25s ease-out;
+}
+
+@keyframes cc-place {
+  from { transform: scale(1.15); opacity: 0.3; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.cc-card.cc-flipping {
+  animation: cc-flip 0.5s ease-in-out;
+}
+
+@keyframes cc-flip {
+  0% { transform: perspective(400px) rotateY(0); }
+  50% { transform: perspective(400px) rotateY(90deg); }
+  100% { transform: perspective(400px) rotateY(0); }
+}
+
+.cc-slot,
+.cc-hand-card,
+.cc-pick {
+  font: inherit;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  touch-action: manipulation;
+}
+
+/* Board */
+.cc-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  width: min(100%, 330px);
+  margin: 0.6rem auto;
+  padding: 0.4rem;
+  background: var(--cell);
+  border-radius: 0.8rem;
+}
+
+.cc-slot {
+  aspect-ratio: 1 / 1;
+  background: var(--bg);
+  border-radius: 0.6rem;
+  cursor: default;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cc-board.placing .cc-slot:not(:disabled) {
+  cursor: pointer;
+}
+
+.cc-board.placing .cc-slot:not(:disabled):hover {
+  background: var(--cell-hover);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.cc-slot.cc-claimable .cc-card {
+  box-shadow: 0 0 0 3px var(--win);
+  animation: cc-glow 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes cc-glow {
+  to { box-shadow: 0 0 0 3px var(--win), 0 0 14px var(--win); }
+}
+
+/* Hands and player bars */
+.cc-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.2rem 0.2rem;
+}
+
+.cc-who {
+  font-weight: 700;
+}
+
+.cc-score {
+  font-size: 1.3rem;
+  min-width: 2.2rem;
+  background: var(--cell);
+  border-radius: 0.5rem;
+  padding: 0.15rem 0.5rem;
+}
+
+.cc-side[data-color="red"] .cc-who,
+.cc-side[data-color="red"] .cc-score {
+  color: var(--red-color);
+}
+
+.cc-side[data-color="blue"] .cc-who,
+.cc-side[data-color="blue"] .cc-score {
+  color: var(--blue-color);
+}
+
+.cc-hand {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Keeps an empty hand from collapsing so the board doesn't jump. */
+.cc-hand:empty::before {
+  content: "";
+  flex: 0 0 calc((100% - 1.6rem) / 5);
+  aspect-ratio: 1 / 1;
+}
+
+.cc-hand.waiting {
+  opacity: 0.55;
+}
+
+.cc-hand-card {
+  flex: 0 0 calc((100% - 1.6rem) / 5);
+  border-radius: 12%;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.cc-hand-card:disabled,
+div.cc-hand-card {
+  cursor: default;
+}
+
+.cc-hand-card.selected {
+  transform: translateY(-10%);
+}
+
+#cpuHand .cc-hand-card.selected {
+  transform: translateY(10%);
+}
+
+.cc-hand-card.selected .cc-card {
+  box-shadow: 0 0 0 3px var(--win);
+}
+
+.cc-result {
+  margin-top: 0.8rem;
+}
+
+.cc-result .cc-hand-card {
+  flex-basis: min(32%, 130px);
+}
+
+.cc-result .reset-btn {
+  margin-top: 0.8rem;
+}
+
+.cc-hand-card.cc-claimed {
+  animation: cc-place 0.35s ease-out;
+}
+
+/* Hand picker */
+.cc-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+
+.cc-pick {
+  position: relative;
+  border-radius: 12%;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.cc-pick.selected {
+  transform: translateY(-4px);
+}
+
+.cc-pick.selected .cc-card {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+.cc-pick.selected::after {
+  content: "✓";
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Collection page */
+.cc-heading {
+  font-size: 0.85rem;
+  text-align: left;
+  margin: 1.2rem 0 0.6rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cc-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.cc-collection {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.8rem;
+}
+
+.cc-collect-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cc-collect-item.missing .cc-card {
+  filter: grayscale(1) brightness(0.55);
+}
+
+.cc-caption {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  font-weight: 600;
+  gap: 0.1rem;
+}
+
+.cc-caption .cc-muted {
+  font-size: 0.7rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cc-count {
+  background: var(--cell);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.cc-collect-item.missing .cc-count {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.cc-history {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  text-align: left;
+}
+
+.cc-history li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+  background: var(--cell);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.cc-win {
+  color: #4ade80;
+}
+
+.cc-loss {
+  color: var(--x-color);
+}
+
+.cc-when {
+  margin-left: auto;
+  font-size: 0.75rem;
+}
+
+.cc-btn-link {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.cc-danger {
+  background: #b91c1c;
+}
+
+.setting-block .cc-input {
+  margin-bottom: 0.4rem;
+}
+
+.setting-block .cc-danger {
+  margin-top: 0.8rem;
+}

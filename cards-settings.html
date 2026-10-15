@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Settings - Card Clash</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Card Clash">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game">
+    <h1>Card Clash Settings</h1>
+
+    <div id="noPlayer" class="setting-block" hidden>
+      <p class="settings-hint">No player yet. Start Card Clash to create one.</p>
+    </div>
+
+    <div id="playerSettings" hidden>
+      <div class="setting-block">
+        <label for="nameInput">Player name</label>
+        <input id="nameInput" class="cc-input" type="text" maxlength="20" autocomplete="off">
+      </div>
+
+      <div class="setting-block">
+        <label>Start over</label>
+        <p class="settings-hint">
+          Deletes this player's collection, stats and game history. You'll pick a name again and get 5 new random starter cards.
+        </p>
+        <button id="resetPlayerBtn" class="reset-btn cc-danger">Reset Player</button>
+      </div>
+    </div>
+
+    <div class="settings-actions">
+      <button id="saveBtn" class="reset-btn">Save &amp; Back to Game</button>
+    </div>
+  </main>
+
+  <script src="cards-data.js"></script>
+  <script src="cards-settings.js"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Card Clash</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Card Clash">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game cc-page">
+    <div class="title-row">
+      <div class="menu-wrap">
+        <button id="menuBtn" class="menu-btn" aria-label="Menu" aria-expanded="false" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" class="menu-icon" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/></svg>
+        </button>
+        <div id="menuDropdown" class="menu-dropdown" hidden>
+          <a href="index.html" class="menu-item" data-page="index.html">Tic-Tac-Toe</a>
+          <a href="fence.html" class="menu-item" data-page="fence.html">Fence</a>
+          <a href="connect4.html" class="menu-item" data-page="connect4.html">Connect 4</a>
+          <a href="cards.html" class="menu-item" data-page="cards.html">Card Clash</a>
+        </div>
+      </div>
+
+      <h1>Card Clash</h1>
+      <a href="cards-settings.html" class="settings-link" aria-label="Settings">
+        <svg viewBox="0 0 24 24" class="gear-icon" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94a7.14 7.14 0 0 0 .06-.94 7.14 7.14 0 0 0-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.55-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.14 7.14 0 0 0-.06.94c0 .32.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.42.32.6.22l2.39-.96c.49.39 1.03.7 1.62.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.59-.24 1.13-.55 1.62-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
+      </a>
+    </div>
+
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <!-- New player -->
+    <section id="setupView" class="cc-view" hidden>
+      <p class="cc-note">Enter your name to create your player. You'll start with 5 random cards.</p>
+      <form id="setupForm" class="cc-form">
+        <input id="nameInput" class="cc-input" type="text" maxlength="20" placeholder="Your name" autocomplete="off" required>
+        <button type="submit" class="reset-btn">Start</button>
+      </form>
+    </section>
+
+    <!-- Choose a hand -->
+    <section id="deckView" class="cc-view" hidden>
+      <div class="cc-profile">
+        <div class="cc-profile-name">
+          <strong id="deckName"></strong>
+          <span id="deckRecord" class="cc-muted"></span>
+        </div>
+        <a href="cards-collection.html" class="cc-link">Collection &amp; Stats</a>
+      </div>
+      <p id="deckNotice" class="cc-notice" hidden></p>
+      <div id="deckGrid" class="cc-grid" role="group" aria-label="Your collection"></div>
+      <button id="playBtn" class="reset-btn" disabled>Play</button>
+      <details class="cc-rules">
+        <summary>How to play</summary>
+        <ul>
+          <li>A coin toss decides who goes first. The first player's cards are <span class="cc-red-text">Red</span>, the other player's are <span class="cc-blue-text">Blue</span>.</li>
+          <li>Take turns placing a card from your hand on any empty square.</li>
+          <li>When you place a card, any touching opponent card whose facing number is lower than your card's number on that side flips to your color. One card can flip several at once.</li>
+          <li>When all 9 squares are full, whoever has more cards in their color wins.</li>
+          <li>Win, and you may add one of your opponent's cards that ended in your color to your collection. You never lose your own cards.</li>
+        </ul>
+      </details>
+    </section>
+
+    <!-- Game in progress / finished -->
+    <section id="playView" class="cc-view" hidden>
+      <div id="cpuSide" class="cc-side">
+        <div class="cc-bar">
+          <span id="cpuLabel" class="cc-who"></span>
+          <strong id="cpuScore" class="cc-score"></strong>
+        </div>
+        <div id="cpuHand" class="cc-hand" aria-label="Opponent's hand"></div>
+      </div>
+
+      <div id="ccBoard" class="cc-board" role="grid" aria-label="Card board"></div>
+
+      <div id="youSide" class="cc-side">
+        <div id="youHand" class="cc-hand" aria-label="Your hand"></div>
+        <div class="cc-bar">
+          <span id="youLabel" class="cc-who"></span>
+          <strong id="youScore" class="cc-score"></strong>
+        </div>
+      </div>
+
+      <div id="resultPanel" class="cc-result" hidden>
+        <p id="resultText" class="cc-note"></p>
+        <div id="claimChoices" class="cc-hand" role="group" aria-label="Cards you can claim"></div>
+        <button id="claimBtn" class="reset-btn" hidden disabled>Add to Collection</button>
+        <button id="againBtn" class="reset-btn" hidden>Play Again</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="menu.js"></script>
+  <script src="cards-data.js"></script>
+  <script src="cards.js"></script>
+</body>
+</html>
