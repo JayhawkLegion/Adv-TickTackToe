@@ -1,4 +1,4 @@
-const CACHE_NAME = "tic-tac-toe-v8";
+const CACHE_NAME = "tic-tac-toe-v9";
 const ASSETS = [
   "./",
   "./index.html",
@@ -20,6 +20,7 @@ const ASSETS = [
   "./fence-settings.js",
   "./connect4.js",
   "./connect4-settings.js",
+  "./cards-pool.js",
   "./cards-data.js",
   "./cards.js",
   "./cards-collection.js",

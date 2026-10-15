@@ -1,27 +1,17 @@
 // Card Clash shared code: the card pool, rarity chances, the flip rule, saved
-// player profiles and card rendering. Loaded by every Card Clash page.
+// player profiles and card rendering. Loaded by every Card Clash page, after
+// cards-pool.js (the built-in cards, BUILT_IN_CARDS).
 
-// The cards the game ships with. More cards are added from the Card Builder
-// (cards-admin.html); those, and any edits to these, are saved in the browser
-// and merged on top of this list. `no` is the card number and sets order.
-const BUILT_IN_CARDS = [
-  { no: 1, id: "dog", name: "Dog", icon: "🐶", rarity: "normal", left: 1, top: 2, right: 3, bottom: 2 },
-  { no: 2, id: "cat", name: "Cat", icon: "🐱", rarity: "normal", left: 2, top: 3, right: 1, bottom: 2 },
-  { no: 3, id: "sparrow", name: "Sparrow", icon: "🐦", rarity: "normal", left: 3, top: 1, right: 1, bottom: 2 },
-  { no: 4, id: "fish", name: "Fish", icon: "🐟", rarity: "normal", left: 1, top: 1, right: 2, bottom: 3 },
-  { no: 5, id: "mouse", name: "Mouse", icon: "🐭", rarity: "normal", left: 2, top: 2, right: 2, bottom: 1 },
-];
-
-const RARITY_ORDER = ["normal", "rare", "epic", "legendary"];
+const RARITY_ORDER = ["common", "rare", "epic", "legendary"];
 const RARITIES = {
-  normal: { label: "Normal", color: "#9a9cb5" },
+  common: { label: "Common", color: "#9a9cb5" },
   rare: { label: "Rare", color: "#2dd4bf" },
   epic: { label: "Epic", color: "#c084fc" },
   legendary: { label: "Legendary", color: "#f59e0b" },
 };
 // Chance (%) that a randomly drawn card is of each rarity. Adjustable in the
 // Card Builder; must add up to 100.
-const DEFAULT_RARITY_CHANCES = { normal: 70, rare: 20, epic: 8, legendary: 2 };
+const DEFAULT_RARITY_CHANCES = { common: 70, rare: 20, epic: 8, legendary: 2 };
 
 const SIDES = ["top", "right", "bottom", "left"];
 const HAND_SIZE = 5;
@@ -53,6 +43,17 @@ function cleanCard(card) {
   return { no, id, name, icon, rarity, left, top, right, bottom };
 }
 
+// "Common" was called "normal" before; saves and exports from then still say so.
+function upgradeCard(card) {
+  return card && card.rarity === "normal" ? { ...card, rarity: "common" } : card;
+}
+
+function upgradeChances(chances) {
+  if (!chances || !("normal" in chances) || "common" in chances) return chances;
+  const { normal, ...rest } = chances;
+  return { common: normal, ...rest };
+}
+
 function sameCard(a, b) {
   return JSON.stringify(cleanCard(a)) === JSON.stringify(cleanCard(b));
 }
@@ -79,14 +80,26 @@ function loadPoolSave() {
   return saved && typeof saved === "object" ? saved : {};
 }
 
-// Built-in cards, overridden or extended by the saved cards.
+// Built-in cards, overridden or extended by the saved cards. An edited
+// built-in card keeps its number; a custom card whose number is taken by
+// another card (e.g. after new built-in cards were added) moves to the next
+// free number.
 function applyPool(savedCards, chances) {
   const byId = Object.fromEntries(BUILT_IN_CARDS.map((card) => [card.id, { ...card }]));
-  (savedCards || []).filter(isValidCard).forEach((card) => {
-    byId[card.id] = cleanCard(card);
+  const custom = [];
+  (savedCards || []).map(upgradeCard).filter(isValidCard).map(cleanCard).forEach((card) => {
+    if (BUILT_IN_BY_ID[card.id]) byId[card.id] = { ...card, no: BUILT_IN_BY_ID[card.id].no };
+    else custom.push(card);
+  });
+  const used = new Set(Object.values(byId).map((card) => card.no));
+  custom.sort((a, b) => a.no - b.no).forEach((card) => {
+    if (used.has(card.no)) card.no = Math.max(...used) + 1;
+    used.add(card.no);
+    byId[card.id] = card;
   });
   CARD_POOL = Object.values(byId).sort((a, b) => a.no - b.no);
   CARDS_BY_ID = Object.fromEntries(CARD_POOL.map((card) => [card.id, card]));
+  chances = upgradeChances(chances);
   RARITY_CHANCES = isValidChances(chances) ? { ...chances } : { ...DEFAULT_RARITY_CHANCES };
 }
 
@@ -271,8 +284,8 @@ function escapeHtml(text) {
 
 // `cardOrId` is a card id or a card object (the Card Builder previews unsaved
 // cards). color: "red" | "blue" for a card in play, "neutral" otherwise.
-// Neutral cards show their rarity as the border color; every non-normal card
-// also gets a rarity gem in its top-left corner.
+// Neutral cards show their rarity as the border color; every card above
+// common also gets a rarity gem in its top-left corner.
 function createCardEl(cardOrId, color = "neutral") {
   const card = typeof cardOrId === "string" ? getCard(cardOrId) : cardOrId;
   const rarity = RARITIES[card.rarity];
@@ -285,7 +298,7 @@ function createCardEl(cardOrId, color = "neutral") {
     "aria-label",
     `${card.name}, ${rarity.label}: top ${card.top}, right ${card.right}, bottom ${card.bottom}, left ${card.left}`
   );
-  const gem = card.rarity === "normal" ? "" : `<span class="cc-gem" title="${rarity.label}"></span>`;
+  const gem = card.rarity === "common" ? "" : `<span class="cc-gem" title="${rarity.label}"></span>`;
   el.innerHTML = `
     ${gem}
     <span class="cc-num cc-top">${card.top}</span>

@@ -142,7 +142,7 @@ chanceForm.addEventListener("submit", (e) => {
 
 // --- Building and editing cards ---
 function blankDraft() {
-  return { name: "", icon: "", rarity: "normal", top: 1, right: 1, bottom: 1, left: 1 };
+  return { name: "", icon: "", rarity: "common", top: 1, right: 1, bottom: 1, left: 1 };
 }
 
 function buildFormControls() {
@@ -366,7 +366,7 @@ importFile.addEventListener("change", async () => {
   let nextNumber = nextCardNumber();
   let added = 0;
   let updated = 0;
-  const valid = data.cards.filter(isValidCard).map(cleanCard);
+  const valid = data.cards.map(upgradeCard).filter(isValidCard).map(cleanCard);
   valid.forEach((card) => {
     const existing = byId[card.id];
     if (existing) {
@@ -384,7 +384,8 @@ importFile.addEventListener("change", async () => {
     added++;
   });
 
-  const chances = isValidChances(data.chances) ? data.chances : RARITY_CHANCES;
+  const imported = upgradeChances(data.chances);
+  const chances = isValidChances(imported) ? imported : RARITY_CHANCES;
   savePool(Object.values(byId), chances);
   const skipped = data.cards.length - valid.length;
   setStatus(
