@@ -49,7 +49,7 @@
       </div>
 
       <label for="cardName">Name</label>
-      <input id="cardName" class="cc-input" type="text" maxlength="16" placeholder="e.g. Dragon">
+      <input id="cardName" class="cc-input" type="text" maxlength="20" placeholder="e.g. Dragon">
 
       <label for="cardIcon">Picture (an emoji)</label>
       <input id="cardIcon" class="cc-input" type="text" maxlength="8" placeholder="Type an emoji or tap one below">
@@ -70,7 +70,13 @@
 
     <!-- Everything in the pool -->
     <h2 class="cc-heading">Card pool (<span id="poolCount">0</span>)</h2>
-    <p class="settings-hint">Tap a card to edit it.</p>
+    <div class="cc-pool-filters">
+      <input id="poolSearch" class="cc-input" type="search" placeholder="Search name or #number" aria-label="Search cards">
+      <select id="poolRarity" class="cc-side-select" aria-label="Show rarity">
+        <option value="">All</option>
+      </select>
+    </div>
+    <p id="poolShowing" class="settings-hint"></p>
     <div id="poolGrid" class="cc-grid cc-collection"></div>
 
     <!-- Backup -->

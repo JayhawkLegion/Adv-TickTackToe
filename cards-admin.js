@@ -34,6 +34,9 @@ const sideSelects = {
 
 const poolCountEl = document.getElementById("poolCount");
 const poolGridEl = document.getElementById("poolGrid");
+const poolSearchEl = document.getElementById("poolSearch");
+const poolRarityEl = document.getElementById("poolRarity");
+const poolShowingEl = document.getElementById("poolShowing");
 const exportBtn = document.getElementById("exportBtn");
 const importBtn = document.getElementById("importBtn");
 const importFile = document.getElementById("importFile");
@@ -45,8 +48,9 @@ function setStatus(text) {
   statusEl.textContent = text;
 }
 
+// One decimal place, or two significant digits for small shares (0.047%).
 function formatPct(n) {
-  return `${Number(n.toFixed(1))}%`;
+  return `${Number(n >= 1 || n === 0 ? n.toFixed(1) : n.toPrecision(2))}%`;
 }
 
 // How many copies of each card all players on this device own.
@@ -286,11 +290,25 @@ deleteCardBtn.addEventListener("click", () => {
 });
 
 // --- The pool ---
+// Cards matching the search box (name, or #number) and rarity filter.
+function filteredPool() {
+  const query = poolSearchEl.value.trim().toLowerCase().replace(/^#/, "");
+  const rarity = poolRarityEl.value;
+  return CARD_POOL.filter((card) => {
+    if (rarity === "custom" ? BUILT_IN_BY_ID[card.id] : rarity && card.rarity !== rarity) return false;
+    return !query || card.name.toLowerCase().includes(query) || String(card.no) === query;
+  });
+}
+
 function renderPool() {
   const owned = ownedCounts();
+  const cards = filteredPool();
   poolCountEl.textContent = CARD_POOL.length;
+  poolShowingEl.textContent = cards.length
+    ? `Showing ${cards.length === CARD_POOL.length ? "all" : cards.length} · tap a card to edit it.`
+    : "No cards match.";
   poolGridEl.innerHTML = "";
-  CARD_POOL.forEach((card) => {
+  cards.forEach((card) => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "cc-collect-item cc-pool-item";
@@ -395,7 +413,12 @@ importFile.addEventListener("change", async () => {
   loadForm(null);
 });
 
+poolSearchEl.addEventListener("input", renderPool);
+poolRarityEl.addEventListener("change", renderPool);
+
 buildChanceRows();
 buildFormControls();
+RARITY_ORDER.forEach((r) => poolRarityEl.add(new Option(RARITIES[r].label, r)));
+poolRarityEl.add(new Option("Custom", "custom"));
 showChances(RARITY_CHANCES);
 loadForm(null);

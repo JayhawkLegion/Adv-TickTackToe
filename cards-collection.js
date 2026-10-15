@@ -6,7 +6,8 @@ const summaryEl = document.getElementById("collectionSummary");
 const noPlayerEl = document.getElementById("noPlayer");
 const playerInfoEl = document.getElementById("playerInfo");
 const statsGridEl = document.getElementById("statsGrid");
-const collectionGridEl = document.getElementById("collectionGrid");
+const collectionGroupsEl = document.getElementById("collectionGroups");
+const showMissingEl = document.getElementById("showMissing");
 const historyListEl = document.getElementById("historyList");
 
 const RESULT_LABELS = {
@@ -44,33 +45,60 @@ function renderStats() {
   });
 }
 
+// Owned cards grouped by rarity, with how many of each rarity's cards the
+// player has found. Cards they don't own are shown only on request, since
+// the pool runs to hundreds of cards.
 function renderCollection() {
   const counts = {};
   playableCollection(player).forEach((owned) => {
     counts[owned.cardId] = (counts[owned.cardId] || 0) + 1;
   });
 
-  collectionGridEl.innerHTML = "";
-  CARD_POOL.forEach((card) => {
-    const count = counts[card.id] || 0;
-    const item = document.createElement("div");
-    item.className = "cc-collect-item";
-    item.classList.toggle("missing", !count);
-    item.appendChild(createCardEl(card.id));
+  collectionGroupsEl.innerHTML = "";
+  RARITY_ORDER.forEach((rarity) => {
+    const cards = CARD_POOL.filter((card) => card.rarity === rarity);
+    if (!cards.length) return;
+    const found = cards.filter((card) => counts[card.id]).length;
+    const heading = document.createElement("h3");
+    heading.className = "cc-rarity-heading";
+    heading.style.color = RARITIES[rarity].color;
+    heading.textContent = `${RARITIES[rarity].label} · ${found} of ${cards.length}`;
+    collectionGroupsEl.appendChild(heading);
 
-    const caption = document.createElement("div");
-    caption.className = "cc-caption";
-    caption.innerHTML = `<span>#${card.no} ${escapeHtml(card.name)}</span><span class="cc-muted" style="color: ${RARITIES[card.rarity].color}">${RARITIES[card.rarity].label}</span>`;
-    item.appendChild(caption);
-
-    const badge = document.createElement("span");
-    badge.className = "cc-count";
-    badge.textContent = count ? `×${count}` : "Not owned";
-    item.appendChild(badge);
-
-    collectionGridEl.appendChild(item);
+    const shown = showMissingEl.checked ? cards : cards.filter((card) => counts[card.id]);
+    if (!shown.length) {
+      const none = document.createElement("p");
+      none.className = "cc-muted cc-none";
+      none.textContent = `No ${RARITIES[rarity].label.toLowerCase()} cards yet.`;
+      collectionGroupsEl.appendChild(none);
+      return;
+    }
+    const grid = document.createElement("div");
+    grid.className = "cc-grid cc-collection";
+    shown.forEach((card) => grid.appendChild(collectionItem(card, counts[card.id] || 0)));
+    collectionGroupsEl.appendChild(grid);
   });
 }
+
+function collectionItem(card, count) {
+  const item = document.createElement("div");
+  item.className = "cc-collect-item";
+  item.classList.toggle("missing", !count);
+  item.appendChild(createCardEl(card.id));
+
+  const caption = document.createElement("div");
+  caption.className = "cc-caption";
+  caption.innerHTML = `<span>#${card.no} ${escapeHtml(card.name)}</span><span class="cc-muted" style="color: ${RARITIES[card.rarity].color}">${RARITIES[card.rarity].label}</span>`;
+  item.appendChild(caption);
+
+  const badge = document.createElement("span");
+  badge.className = "cc-count";
+  badge.textContent = count ? `×${count}` : "Not owned";
+  item.appendChild(badge);
+  return item;
+}
+
+showMissingEl.addEventListener("change", renderCollection);
 
 function renderHistory() {
   historyListEl.innerHTML = "";

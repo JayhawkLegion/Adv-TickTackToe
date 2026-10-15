@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""Generate cards-pool.js, Card Clash's built-in card pool.
+
+Run from the repo root:  python3 tools/generate_card_pool.py
+
+Each rarity is every combination of four side numbers (left, top, right,
+bottom) allowed by its rule. Cards are numbered from weakest to strongest by
+the total of their sides (ties in left-top-right-bottom order), commons first,
+then rares, and given animals ranked from weakest to strongest to match.
+
+A card's id comes from its rarity and sides (e.g. "rare-4-1-1-1"), so animals
+and names can be reshuffled here without changing which cards players own.
+"""
+from itertools import product
+from pathlib import Path
+
+# Every animal, weakest to strongest. Dragons, unicorns, dinosaurs, the mammoth
+# and the dodo are left out on purpose: they're kept for epic and legendary.
+ANIMALS = [
+    ("Worm", "🪱"), ("Ant", "🐜"), ("Fly", "🪰"), ("Mosquito", "🦟"), ("Ladybug", "🐞"),
+    ("Caterpillar", "🐛"), ("Snail", "🐌"), ("Cricket", "🦗"), ("Cockroach", "🪳"), ("Beetle", "🪲"),
+    ("Butterfly", "🦋"), ("Bee", "🐝"), ("Oyster", "🦪"), ("Shrimp", "🦐"), ("Spider", "🕷️"),
+    ("Chick", "🐤"), ("Mouse", "🐭"), ("Hamster", "🐹"), ("Sparrow", "🐦"), ("Fish", "🐟"),
+    ("Chipmunk", "🐿️"), ("Rat", "🐀"), ("Frog", "🐸"), ("Lizard", "🦎"), ("Reef Fish", "🐠"),
+    ("Scorpion", "🦂"), ("Crab", "🦀"), ("Dove", "🕊️"), ("Duck", "🦆"), ("Hedgehog", "🦔"),
+    ("Bat", "🦇"), ("Pufferfish", "🐡"), ("Rabbit", "🐰"), ("Chicken", "🐔"), ("Squid", "🦑"),
+    ("Parrot", "🦜"), ("Cat", "🐱"), ("Poodle", "🐩"), ("Rooster", "🐓"), ("Turkey", "🦃"),
+    ("Sloth", "🦥"), ("Peacock", "🦚"), ("Penguin", "🐧"), ("Skunk", "🦨"), ("Swan", "🦢"),
+    ("Flamingo", "🦩"), ("Owl", "🦉"), ("Black Cat", "🐈‍⬛"), ("Otter", "🦦"), ("Beaver", "🦫"),
+    ("Raccoon", "🦝"), ("Turtle", "🐢"), ("Koala", "🐨"), ("Dog", "🐶"), ("Snake", "🐍"),
+    ("Lobster", "🦞"), ("Octopus", "🐙"), ("Seal", "🦭"), ("Sheep", "🐑"), ("Goat", "🐐"),
+    ("Ram", "🐏"), ("Pig", "🐷"), ("Monkey", "🐵"), ("Badger", "🦡"), ("Fox", "🦊"),
+    ("Panda", "🐼"), ("Llama", "🦙"), ("Dolphin", "🐬"), ("Kangaroo", "🦘"), ("Eagle", "🦅"),
+    ("Deer", "🦌"), ("Camel", "🐪"), ("Zebra", "🦓"), ("Cow", "🐮"), ("Ox", "🐂"),
+    ("Boar", "🐗"), ("Horse", "🐴"), ("Buffalo", "🐃"), ("Orangutan", "🦧"), ("Wolf", "🐺"),
+    ("Leopard", "🐆"), ("Giraffe", "🦒"), ("Bison", "🦬"), ("Crocodile", "🐊"), ("Shark", "🦈"),
+    ("Whale", "🐋"), ("Hippo", "🦛"), ("Gorilla", "🦍"), ("Bear", "🐻"), ("Polar Bear", "🐻‍❄️"),
+    ("Rhino", "🦏"), ("Tiger", "🐯"), ("Lion", "🦁"), ("Elephant", "🐘"),
+]
+
+# Rare cards reuse animals, so each gets a title, weakest to strongest within
+# that animal's cards ("Wild Wolf" ... "Royal Wolf").
+RARE_TITLES = ["Wild", "Swift", "Shadow", "Golden", "Royal", "Ancient"]
+
+# Built-in card ids from before ids were based on sides, mapped to their
+# sides, so cards players already own carry over.
+LEGACY_IDS = {
+    "dog": "1-2-3-2", "cat": "2-3-1-2", "sparrow": "3-1-1-2", "fish": "1-1-2-3",
+    "mouse": "2-2-2-1", "ant": "1-1-1-1", "ladybug": "1-1-1-2", "snail": "1-1-2-1",
+    "cricket": "1-2-1-1", "beetle": "2-1-1-1", "butterfly": "1-1-1-3", "bee": "1-1-2-2",
+    "shrimp": "1-1-3-1", "spider": "1-2-1-2", "hamster": "1-2-2-1", "chipmunk": "1-3-1-1",
+    "rat": "2-1-1-2", "scorpion": "2-1-2-1", "crab": "2-2-1-1", "frog": "3-1-1-1",
+    "lizard": "1-1-3-2", "dove": "1-2-1-3", "duck": "1-2-2-2", "chicken": "1-2-3-1",
+    "tropical-fish": "1-3-1-2", "pufferfish": "1-3-2-1", "hedgehog": "2-1-1-3", "bat": "2-1-2-2",
+    "rabbit": "2-1-3-1", "squid": "2-2-1-2", "parrot": "2-3-1-1", "turkey": "3-1-2-1",
+    "sloth": "3-2-1-1", "peacock": "1-1-3-3", "penguin": "1-2-2-3", "swan": "1-3-1-3",
+    "flamingo": "1-3-2-2", "owl": "1-3-3-1", "skunk": "2-1-2-3", "otter": "2-1-3-2",
+    "beaver": "2-2-1-3", "raccoon": "2-2-2-2", "turtle": "2-2-3-1", "koala": "2-3-2-1",
+    "snake": "3-1-1-3", "lobster": "3-1-2-2", "octopus": "3-1-3-1", "seal": "3-2-1-2",
+    "sheep": "3-2-2-1", "goat": "3-3-1-1", "pig": "1-2-3-3", "monkey": "1-3-2-3",
+    "badger": "1-3-3-2", "fox": "2-1-3-3", "panda": "2-2-2-3", "llama": "2-2-3-2",
+    "dolphin": "2-3-1-3", "kangaroo": "2-3-2-2", "eagle": "2-3-3-1", "deer": "3-1-2-3",
+    "camel": "3-1-3-2", "zebra": "3-2-1-3", "cow": "3-2-2-2", "boar": "3-2-3-1",
+    "horse": "3-3-1-2", "orangutan": "3-3-2-1", "wolf": "1-3-3-3", "leopard": "2-2-3-3",
+    "giraffe": "2-3-2-3", "bison": "2-3-3-2", "crocodile": "3-1-3-3", "shark": "3-2-2-3",
+    "whale": "3-2-3-2", "hippo": "3-3-1-3", "gorilla": "3-3-2-2", "bear": "3-3-3-1",
+    "polar-bear": "2-3-3-3", "rhino": "3-2-3-3", "tiger": "3-3-2-3", "lion": "3-3-3-2",
+    "elephant": "3-3-3-3",
+}
+
+
+def common_rule(sides):
+    return max(sides) <= 3
+
+
+def rare_rule(sides):
+    # Must use a 4 or 5 (anything lower is a common card) and total 15 or less.
+    return max(sides) >= 4 and sum(sides) <= 15
+
+
+def strength_order(rule, top_value):
+    combos = [c for c in product(range(1, top_value + 1), repeat=4) if rule(c)]
+    return sorted(combos, key=lambda c: (sum(c), c))
+
+
+def card_id(rarity, sides):
+    return f"{rarity}-" + "-".join(map(str, sides))
+
+
+def split_evenly(items, parts):
+    """Split into `parts` consecutive groups; the last groups get any extras."""
+    size, extra = divmod(len(items), parts)
+    groups, start = [], 0
+    for i in range(parts):
+        n = size + (1 if i >= parts - extra else 0)
+        groups.append(items[start:start + n])
+        start += n
+    return groups
+
+
+def build():
+    cards = []
+    commons = strength_order(common_rule, 3)
+    for sides, (name, icon) in zip(commons, ANIMALS):
+        cards.append(("common", sides, name, icon))
+
+    rares = strength_order(rare_rule, 5)
+    for group, (name, icon) in zip(split_evenly(rares, len(ANIMALS)), ANIMALS):
+        for title, sides in zip(RARE_TITLES, group):
+            cards.append(("rare", sides, f"{title} {name}", icon))
+
+    assert len(commons) == 81 and len(cards) == 81 + len(rares)
+    assert len({n for _, _, n, _ in cards}) == len(cards), "names must be unique"
+    return cards
+
+
+def write(cards):
+    lines = []
+    for no, (rarity, (left, top, right, bottom), name, icon) in enumerate(cards, start=1):
+        if no == 1 or rarity != cards[no - 2][0]:
+            lines.append(f"  // {rarity.capitalize()}")
+        lines.append(
+            f'  {{ no: {no}, id: "{card_id(rarity, (left, top, right, bottom))}", name: "{name}", icon: "{icon}", '
+            f'rarity: "{rarity}", left: {left}, top: {top}, right: {right}, bottom: {bottom} }},'
+        )
+    legacy = [f'"{old}": "{card_id("common", tuple(map(int, sides.split("-"))))}"' for old, sides in LEGACY_IDS.items()]
+    legacy_lines = ["  " + ", ".join(legacy[i:i + 3]) + "," for i in range(0, len(legacy), 3)]
+
+    out = f"""// Card Clash built-in card pool. GENERATED by tools/generate_card_pool.py;
+// change that script and re-run it rather than editing this file by hand.
+//
+// Commons: every combination of 1-3 on the four sides ({sum(c[0] == "common" for c in cards)} cards).
+// Rares: sides 1-5 using at least one 4 or 5, totalling 15 or less ({sum(c[0] == "rare" for c in cards)} cards).
+// Numbered weakest to strongest by side total within each rarity, with
+// animals picked to match. Cards built in the Card Builder, and edits to
+// these, are saved in the browser and merged on top by cards-data.js.
+const BUILT_IN_CARDS = [
+{chr(10).join(lines)}
+];
+
+// Ids built-in cards had before ids were based on sides; owned cards, saved
+// edits and exports using them are switched to the new ids on load.
+const LEGACY_CARD_IDS = {{
+{chr(10).join(legacy_lines)}
+}};
+"""
+    Path(__file__).resolve().parent.parent.joinpath("cards-pool.js").write_text(out, encoding="utf-8")
+    return len(cards)
+
+
+if __name__ == "__main__":
+    print(f"Wrote {write(build())} cards to cards-pool.js")

@@ -43,9 +43,17 @@ function cleanCard(card) {
   return { no, id, name, icon, rarity, left, top, right, bottom };
 }
 
-// "Common" was called "normal" before; saves and exports from then still say so.
+// Built-in cards used to have animal-name ids ("dog"); they're now based on
+// rarity and sides (LEGACY_CARD_IDS in cards-pool.js maps old to new).
+function upgradeId(id) {
+  return LEGACY_CARD_IDS[id] || id;
+}
+
+// Brings a saved or imported card up to date: old built-in ids, and "Common"
+// was called "normal" before.
 function upgradeCard(card) {
-  return card && card.rarity === "normal" ? { ...card, rarity: "common" } : card;
+  if (!card || typeof card !== "object") return card;
+  return { ...card, id: upgradeId(card.id), rarity: card.rarity === "normal" ? "common" : card.rarity };
 }
 
 function upgradeChances(chances) {
@@ -210,15 +218,19 @@ function makeOwnedCard(cardId, source) {
 function normalizePlayer(player) {
   player.stats = { ...emptyStats(), ...player.stats };
   player.collection = player.collection || [];
+  player.collection.forEach((owned) => {
+    owned.cardId = upgradeId(owned.cardId);
+  });
   player.lastHand = player.lastHand || [];
   player.history = player.history || [];
   // Games saved before draws existed stored `won: true/false`.
   player.history.forEach((h) => {
     if (!h.result) h.result = h.won ? "win" : "loss";
     delete h.won;
+    if (h.claimed) h.claimed = upgradeId(h.claimed);
   });
   if (player.pendingClaim) {
-    player.pendingClaim.options = (player.pendingClaim.options || []).filter(getCard);
+    player.pendingClaim.options = (player.pendingClaim.options || []).map(upgradeId).filter(getCard);
     if (!player.pendingClaim.options.length) player.pendingClaim = null;
   }
 }
