@@ -66,7 +66,8 @@
           <li>A coin toss decides who goes first. The first player's cards are <span class="cc-red-text">Red</span>, the other player's are <span class="cc-blue-text">Blue</span>.</li>
           <li>Take turns placing a card from your hand on any empty square.</li>
           <li>When you place a card, any touching opponent card whose facing number is lower than your card's number on that side flips to your color. One card can flip several at once.</li>
-          <li>When all 9 squares are full, whoever has more cards in their color wins.</li>
+          <li>When all 9 squares are full, each player scores the cards in their color on the board plus any card still in their hand. The player who went second always has one card left, and it counts.</li>
+          <li>The higher score wins. A 5–5 tie is a draw.</li>
           <li>Win, and you may add one of your opponent's cards that ended in your color to your collection. You never lose your own cards.</li>
         </ul>
       </details>
@@ -93,6 +94,7 @@
       </div>
 
       <div id="resultPanel" class="cc-result" hidden>
+        <p id="resultScore" class="cc-result-score"></p>
         <p id="resultText" class="cc-note"></p>
         <div id="claimChoices" class="cc-hand" role="group" aria-label="Cards you can claim"></div>
         <button id="claimBtn" class="reset-btn" hidden disabled>Add to Collection</button>

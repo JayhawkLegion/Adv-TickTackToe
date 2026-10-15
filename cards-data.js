@@ -72,7 +72,7 @@ function findFlips(board, index, cardId, color) {
 // allowed), their last chosen hand, stats, recent game history, and a
 // pending card claim if they won but haven't picked their reward yet.
 function emptyStats() {
-  return { played: 0, wins: 0, losses: 0, currentStreak: 0, bestStreak: 0, cardsClaimed: 0, flipsMade: 0 };
+  return { played: 0, wins: 0, losses: 0, draws: 0, currentStreak: 0, bestStreak: 0, cardsClaimed: 0, flipsMade: 0 };
 }
 
 function newId(prefix) {
@@ -88,6 +88,11 @@ function normalizePlayer(player) {
   player.collection = (player.collection || []).filter((owned) => getCard(owned.cardId));
   player.lastHand = player.lastHand || [];
   player.history = player.history || [];
+  // Games saved before draws existed stored `won: true/false`.
+  player.history.forEach((h) => {
+    if (!h.result) h.result = h.won ? "win" : "loss";
+    delete h.won;
+  });
   if (player.pendingClaim) {
     player.pendingClaim.options = (player.pendingClaim.options || []).filter(getCard);
     if (!player.pendingClaim.options.length) player.pendingClaim = null;

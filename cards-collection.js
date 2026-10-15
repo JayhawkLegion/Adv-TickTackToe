@@ -9,6 +9,12 @@ const statsGridEl = document.getElementById("statsGrid");
 const collectionGridEl = document.getElementById("collectionGrid");
 const historyListEl = document.getElementById("historyList");
 
+const RESULT_LABELS = {
+  win: ["Won", "cc-win"],
+  loss: ["Lost", "cc-loss"],
+  draw: ["Drew", "cc-draw"],
+};
+
 const player = getCurrentPlayer(loadCardSave());
 
 function renderStats() {
@@ -18,6 +24,7 @@ function renderStats() {
     ["Games", s.played],
     ["Wins", s.wins],
     ["Losses", s.losses],
+    ["Draws", s.draws],
     ["Win rate", winRate],
     ["Win streak", s.currentStreak],
     ["Best streak", s.bestStreak],
@@ -77,8 +84,9 @@ function renderHistory() {
   player.history.forEach((h) => {
     const li = document.createElement("li");
     const result = document.createElement("strong");
-    result.className = h.won ? "cc-win" : "cc-loss";
-    result.textContent = `${h.won ? "Won" : "Lost"} ${h.score[0]}–${h.score[1]}`;
+    const [label, className] = RESULT_LABELS[h.result];
+    result.className = className;
+    result.textContent = `${label} ${h.score[0]}–${h.score[1]}`;
     const detail = document.createElement("span");
     const claimed = h.claimed ? ` · claimed ${getCard(h.claimed)?.name ?? h.claimed}` : "";
     detail.textContent = ` vs ${h.opponent}${claimed}`;

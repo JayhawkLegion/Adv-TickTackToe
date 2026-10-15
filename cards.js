@@ -2,8 +2,9 @@
 // A coin toss picks who goes first; the first player is Red, the other Blue.
 // Placing a card flips every touching enemy card whose facing number is lower
 // than the placed card's number on that side. When all 9 squares are full,
-// the color with more cards wins, and a winning player may claim one of the
-// opponent's cards that ended up in their color.
+// each side scores its cards on the board plus its unplayed card, if any; the
+// higher score wins (5–5 is a draw), and a winning player may claim one of
+// the opponent's cards that ended up in their color.
 const CPU_NAMES = [
   "Robo Rex", "Captain Byte", "Pixel Pete", "Glitch", "Turbo Tess",
   "Sir Circuit", "Nova-9", "Chip", "Widget", "Bolt",
@@ -39,6 +40,7 @@ const youHandEl = document.getElementById("youHand");
 const boardEl = document.getElementById("ccBoard");
 
 const resultPanelEl = document.getElementById("resultPanel");
+const resultScoreEl = document.getElementById("resultScore");
 const resultTextEl = document.getElementById("resultText");
 const claimChoicesEl = document.getElementById("claimChoices");
 const claimBtn = document.getElementById("claimBtn");
@@ -83,8 +85,8 @@ setupForm.addEventListener("submit", (e) => {
 function showDeck(notice) {
   showView("deck");
   deckNameEl.textContent = player.name;
-  const { wins, losses } = player.stats;
-  deckRecordEl.textContent = `${wins}W – ${losses}L · ${player.collection.length} cards`;
+  const { wins, losses, draws } = player.stats;
+  deckRecordEl.textContent = `${wins}W – ${losses}L – ${draws}D · ${player.collection.length} cards`;
   deckNoticeEl.hidden = !notice;
   deckNoticeEl.textContent = notice || "";
 
@@ -215,10 +217,18 @@ function renderHand(side) {
   });
 }
 
+// Each side scores its cards on the board plus the cards still in its hand,
+// so the scores start at 5–5 and always add up to 10. At the end the player
+// who went second has one unplayed card, which still counts.
+function scoreFor(side) {
+  const onBoard = game.board.filter((slot) => slot && slot.color === game.color[side]).length;
+  const inHand = game.hands[side].length;
+  return { onBoard, inHand, total: onBoard + inHand };
+}
+
 function renderScores() {
-  const count = (color) => game.board.filter((slot) => slot && slot.color === color).length;
-  youScoreEl.textContent = count(game.color.you);
-  cpuScoreEl.textContent = count(game.color.cpu);
+  youScoreEl.textContent = scoreFor("you").total;
+  cpuScoreEl.textContent = scoreFor("cpu").total;
 }
 
 function beginTurn(message) {
@@ -309,9 +319,14 @@ boardEl.addEventListener("click", (e) => {
 // --- End of game ---
 function finishGame() {
   game.over = true;
-  const yours = game.board.filter((slot) => slot.color === game.color.you).length;
-  const theirs = 9 - yours;
-  const won = yours > theirs;
+  const you = scoreFor("you");
+  const cpu = scoreFor("cpu");
+  const yours = you.total;
+  const theirs = cpu.total;
+  let result = "draw";
+  if (yours > theirs) result = "win";
+  else if (yours < theirs) result = "loss";
+  const won = result === "win";
   const at = Date.now();
 
   const stats = player.stats;
@@ -322,14 +337,15 @@ function finishGame() {
     stats.currentStreak++;
     stats.bestStreak = Math.max(stats.bestStreak, stats.currentStreak);
   } else {
-    stats.losses++;
+    if (result === "loss") stats.losses++;
+    else stats.draws++;
     stats.currentStreak = 0;
   }
 
   player.history.unshift({
     at,
     opponent: game.cpuName,
-    won,
+    result,
     score: [yours, theirs],
     wentFirst: game.color.you === "red",
     claimed: null,
@@ -348,15 +364,20 @@ function finishGame() {
   saveCardSave(save);
 
   renderBoard();
-  if (won) {
+  if (result === "win") {
     setStatus(`You win ${yours}–${theirs}! 🎉`, game.color.you);
-  } else {
+  } else if (result === "loss") {
     setStatus(`${game.cpuName} wins ${theirs}–${yours}.`, game.color.cpu);
+  } else {
+    setStatus(`It's a draw, ${yours}–${theirs}.`);
   }
-  showResult(won);
+  const describe = (name, s) => (s.inHand ? `${name} ${s.total} (${s.onBoard} on board + ${s.inHand} in hand)` : `${name} ${s.total}`);
+  resultScoreEl.textContent = `${describe("You", you)} · ${describe(game.cpuName, cpu)}`;
+  resultScoreEl.hidden = false;
+  showResult(result);
 }
 
-function showResult(won) {
+function showResult(result) {
   cpuSideEl.hidden = true;
   youSideEl.hidden = true;
   resultPanelEl.hidden = false;
@@ -367,9 +388,12 @@ function showResult(won) {
     renderClaimChoices();
     againBtn.hidden = true;
   } else {
-    resultTextEl.textContent = won
-      ? `None of ${game.cpuName}'s cards ended in your color, so there's no card to claim this time.`
-      : "Better luck next time. You never lose your own cards.";
+    const messages = {
+      win: `None of ${game.cpuName}'s cards ended in your color, so there's no card to claim this time.`,
+      loss: "Better luck next time. You never lose your own cards.",
+      draw: "No cards change hands on a draw.",
+    };
+    resultTextEl.textContent = messages[result];
     claimChoicesEl.innerHTML = "";
     claimBtn.hidden = true;
     againBtn.hidden = false;
@@ -429,8 +453,9 @@ againBtn.addEventListener("click", () => {
 function showPendingClaim() {
   showView("play");
   boardEl.hidden = true;
+  resultScoreEl.hidden = true;
   setStatus("You won your last game!", "");
-  showResult(true);
+  showResult("win");
 }
 
 if (!player) {
