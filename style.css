@@ -14,6 +14,12 @@
   --c4-frame: #2f5bd3;
   --c4-red: #ef4444;
   --c4-yellow: #facc15;
+  /* Simulator outcomes: an ordered good / neutral / bad scale, checked for
+     colorblind separation on the panel color. */
+  --outcome-win: #0f9f9a;
+  --outcome-draw: #c3c5d4;
+  --outcome-loss: #e8590c;
+  --outcome-ink: #111218;
 }
 
 * {
@@ -1408,4 +1414,185 @@ div.cc-hand-card {
 .cc-pool-filters .cc-side-select {
   font-weight: 600;
   font-size: 0.9rem;
+}
+
+/* Simulator */
+.cc-sim-note {
+  margin: -0.4rem 0 0.4rem;
+  text-align: center;
+}
+
+.cc-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 0.8rem;
+  align-items: center;
+  text-align: left;
+  font-size: 0.9rem;
+  margin-bottom: 0.6rem;
+}
+
+.cc-fields label {
+  color: var(--muted);
+}
+
+.cc-select {
+  width: 100%;
+  min-width: 0;
+  background: var(--cell);
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.45rem 0.5rem;
+  cursor: pointer;
+}
+
+.cc-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cc-sim-preview {
+  margin-bottom: 0.4rem;
+}
+
+.cc-sim-controls .size-options {
+  margin-bottom: 0;
+}
+
+.cc-sim-controls .cc-form-actions {
+  margin-top: 0.8rem;
+}
+
+#watchArea {
+  margin-top: 1rem;
+}
+
+.cc-sim-results {
+  margin-top: 1.2rem;
+  text-align: left;
+}
+
+.cc-sim-title {
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0 0 0.7rem;
+}
+
+/* One stacked bar: 2px panel-colored gaps between segments, rounded ends. */
+.cc-outcome-bar {
+  display: flex;
+  gap: 2px;
+  height: 2.2rem;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.cc-outcome-seg {
+  flex-basis: 0;
+  min-width: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--outcome-ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cc-outcome-win { background: var(--outcome-win); }
+.cc-outcome-draw { background: var(--outcome-draw); }
+.cc-outcome-loss { background: var(--outcome-loss); }
+
+.cc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  margin: 0.55rem 0 1rem;
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.cc-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cc-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 2px;
+}
+
+.cc-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.cc-sim-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 0.3rem;
+  font-size: 0.9rem;
+}
+
+.cc-sim-table caption {
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.cc-sim-table th,
+.cc-sim-table td {
+  padding: 0.45rem 0.6rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-sim-table th:first-child {
+  text-align: left;
+}
+
+.cc-sim-table thead th {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.cc-sim-table tbody th,
+.cc-sim-table tbody td {
+  background: var(--cell);
+}
+
+.cc-sim-table tbody th {
+  border-radius: 0.5rem 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.cc-sim-table tbody td:last-child {
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.setting-block .cc-admin-link + .cc-admin-link {
+  margin-left: 0.4rem;
+}
+
+.cc-run-status {
+  min-height: 1.3em;
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
 }

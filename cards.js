@@ -222,7 +222,7 @@ function renderHand(side) {
 // so the scores start at 5–5 and always add up to 10. At the end the player
 // who went second has one unplayed card, which still counts.
 function scoreFor(side) {
-  const onBoard = game.board.filter((slot) => slot && slot.color === game.color[side]).length;
+  const onBoard = colorCount(game.board, game.color[side]);
   const inHand = game.hands[side].length;
   return { onBoard, inHand, total: onBoard + inHand };
 }
@@ -251,11 +251,7 @@ function beginTurn(message) {
 function playCard(side, handIndex, slotIndex) {
   const color = game.color[side];
   const [cardId] = game.hands[side].splice(handIndex, 1);
-  const flips = findFlips(game.board, slotIndex, cardId, color);
-  game.board[slotIndex] = { cardId, color, startColor: color };
-  flips.forEach((i) => {
-    game.board[i].color = color;
-  });
+  const flips = placeCard(game.board, slotIndex, cardId, color);
   if (side === "you") game.flipsMade += flips.length;
   game.selected = null;
 
@@ -281,22 +277,13 @@ function playCard(side, handIndex, slotIndex) {
   beginTurn(message);
 }
 
-// The computer takes the move that flips the most cards right now, choosing
-// randomly between equally good moves.
+// The computer plays the "smart" style (see chooseMove in cards-data.js).
 function cpuTurn() {
   if (!game || game.over || game.turn !== "cpu") return;
-  const moves = [];
-  game.hands.cpu.forEach((cardId, h) => {
-    game.board.forEach((slot, i) => {
-      if (!slot) moves.push({ h, i, flips: findFlips(game.board, i, cardId, game.color.cpu).length });
-    });
-  });
-  const best = Math.max(...moves.map((m) => m.flips));
-  const move = randomItem(moves.filter((m) => m.flips === best));
-
-  game.cpuPick = move.h;
+  const move = chooseMove(game.board, game.hands.cpu, game.color.cpu);
+  game.cpuPick = move.handIndex;
   renderHand("cpu");
-  setTimeout(() => playCard("cpu", move.h, move.i), CPU_SHOW_PICK_MS);
+  setTimeout(() => playCard("cpu", move.handIndex, move.slot), CPU_SHOW_PICK_MS);
 }
 
 youHandEl.addEventListener("click", (e) => {

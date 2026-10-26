@@ -198,6 +198,42 @@ function findFlips(board, index, cardId, color) {
   return flips;
 }
 
+// Places `cardId` for `color` and flips the opponent cards it beats. Each
+// board slot records its current color and the color it was played as.
+// Returns the flipped slots.
+function placeCard(board, index, cardId, color) {
+  const flips = findFlips(board, index, cardId, color);
+  board[index] = { cardId, color, startColor: color };
+  flips.forEach((i) => {
+    board[i].color = color;
+  });
+  return flips;
+}
+
+function colorCount(board, color) {
+  return board.filter((slot) => slot && slot.color === color).length;
+}
+
+// The computer player. "smart" (what the game's opponent uses) takes the move
+// that flips the most cards right now, choosing randomly between equally good
+// moves; "random" plays any open square with any card.
+// Returns { handIndex, slot }.
+const PLAY_STYLES = { smart: "Smart", random: "Random" };
+
+function chooseMove(board, hand, color, style = "smart") {
+  const moves = [];
+  hand.forEach((cardId, handIndex) => {
+    board.forEach((taken, slot) => {
+      if (taken) return;
+      const flips = style === "smart" ? findFlips(board, slot, cardId, color).length : 0;
+      moves.push({ handIndex, slot, flips });
+    });
+  });
+  const best = Math.max(...moves.map((m) => m.flips));
+  const { handIndex, slot } = randomItem(moves.filter((m) => m.flips === best));
+  return { handIndex, slot };
+}
+
 // --- Saved players ---
 // Shape: { currentPlayerId, players: { [id]: player } } so more users can be
 // added later. Each player owns a collection of card instances (duplicates

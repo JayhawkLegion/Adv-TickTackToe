@@ -1,4 +1,4 @@
-const CACHE_NAME = "tic-tac-toe-v10";
+const CACHE_NAME = "tic-tac-toe-v11";
 const ASSETS = [
   "./",
   "./index.html",
@@ -11,6 +11,7 @@ const ASSETS = [
   "./cards-collection.html",
   "./cards-settings.html",
   "./cards-admin.html",
+  "./cards-sim.html",
   "./style.css",
   "./script.js",
   "./settings.js",
@@ -26,6 +27,7 @@ const ASSETS = [
   "./cards-collection.js",
   "./cards-settings.js",
   "./cards-admin.js",
+  "./cards-sim.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Simulator - Card Clash</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Card Clash">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game cc-page">
+    <h1>Simulator</h1>
+    <p id="status" class="status" aria-live="polite">The computer plays your side against the computer opponent.</p>
+    <p class="settings-hint cc-sim-note">Simulated games never change your stats or collection.</p>
+
+    <!-- Setup -->
+    <h2 class="cc-heading">Setup</h2>
+    <div class="cc-fields">
+      <label for="youCards">Your cards</label>
+      <select id="youCards" class="cc-select">
+        <option value="saved">My saved hand</option>
+        <option value="collection">5 random from my collection</option>
+        <option value="pool">5 random from the pool</option>
+      </select>
+
+      <label for="youStyle">Your side plays</label>
+      <select id="youStyle" class="cc-select"></select>
+
+      <label for="oppStyle">Opponent plays</label>
+      <select id="oppStyle" class="cc-select"></select>
+
+      <label for="firstSide">Who goes first</label>
+      <select id="firstSide" class="cc-select">
+        <option value="coin">Coin toss</option>
+        <option value="you">Always your side</option>
+        <option value="opp">Always the opponent</option>
+      </select>
+    </div>
+    <div id="savedHand" class="cc-hand cc-sim-preview" aria-label="Your saved hand"></div>
+    <p class="settings-hint">
+      The opponent gets 5 random cards from the pool each game, drawn with the rarity chances, just like a real game.
+      "Smart" is how the game's opponent plays: it takes whichever move flips the most cards. "Random" plays any open square.
+    </p>
+
+    <!-- Watch one game -->
+    <h2 class="cc-heading">Watch a game</h2>
+    <div class="cc-sim-controls">
+      <div id="speedOptions" class="size-options" role="group" aria-label="Speed">
+        <button type="button" class="size-option" data-speed="1600">Slow</button>
+        <button type="button" class="size-option selected" data-speed="900">Normal</button>
+        <button type="button" class="size-option" data-speed="350">Fast</button>
+      </div>
+      <div class="cc-form-actions">
+        <button id="watchBtn" type="button" class="reset-btn">Watch a Game</button>
+        <button id="stopBtn" type="button" class="reset-btn cc-secondary" hidden>Stop</button>
+      </div>
+    </div>
+
+    <div id="watchArea" hidden>
+      <p id="watchStatus" class="status" aria-live="polite"></p>
+      <div id="oppSide" class="cc-side">
+        <div class="cc-bar">
+          <span id="oppLabel" class="cc-who"></span>
+          <strong id="oppScore" class="cc-score"></strong>
+        </div>
+        <div id="oppHand" class="cc-hand" aria-label="Opponent's hand"></div>
+      </div>
+      <div id="simBoard" class="cc-board" role="grid" aria-label="Card board"></div>
+      <div id="youSide" class="cc-side">
+        <div id="youHand" class="cc-hand" aria-label="Your side's hand"></div>
+        <div class="cc-bar">
+          <span id="youLabel" class="cc-who"></span>
+          <strong id="youScore" class="cc-score"></strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Many games -->
+    <h2 class="cc-heading">Run many games</h2>
+    <div class="cc-sim-controls">
+      <div id="countOptions" class="size-options" role="group" aria-label="Number of games">
+        <button type="button" class="size-option" data-count="10">10</button>
+        <button type="button" class="size-option" data-count="100">100</button>
+        <button type="button" class="size-option selected" data-count="1000">1,000</button>
+        <button type="button" class="size-option" data-count="10000">10,000</button>
+      </div>
+      <div class="cc-form-actions">
+        <button id="runBtn" type="button" class="reset-btn">Run Games</button>
+      </div>
+      <p id="runStatus" class="cc-run-status" aria-live="polite"></p>
+    </div>
+
+    <section id="results" class="cc-sim-results" hidden aria-live="polite">
+      <p id="resultsTitle" class="cc-sim-title"></p>
+
+      <div id="outcomeBar" class="cc-outcome-bar" role="img"></div>
+      <div id="outcomeLegend" class="cc-legend"></div>
+
+      <div id="kpis" class="cc-kpis"></div>
+
+      <table class="cc-sim-table">
+        <caption>Your hand compared with the opponent's</caption>
+        <thead>
+          <tr><th scope="col">Your hand was</th><th scope="col">Games</th><th scope="col">You won</th></tr>
+        </thead>
+        <tbody id="strengthRows"></tbody>
+      </table>
+      <p id="strengthNote" class="settings-hint"></p>
+    </section>
+
+    <div class="settings-actions cc-admin-back">
+      <a href="cards.html" class="reset-btn cc-btn-link">Back to Game</a>
+    </div>
+  </main>
+
+  <script src="cards-pool.js"></script>
+  <script src="cards-data.js"></script>
+  <script src="cards-sim.js"></script>
+</body>
+</html>
