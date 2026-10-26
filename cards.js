@@ -28,6 +28,17 @@ const deckRecordEl = document.getElementById("deckRecord");
 const deckCoinsEl = document.getElementById("deckCoins");
 const deckNoticeEl = document.getElementById("deckNotice");
 const deckGridEl = document.getElementById("deckGrid");
+const pickTabsEl = document.getElementById("pickTabs");
+const cardsTabEl = document.getElementById("cardsTab");
+const decksTabEl = document.getElementById("decksTab");
+const savedDeckCountEl = document.getElementById("savedDeckCount");
+const editingNoteEl = document.getElementById("editingNote");
+const saveDeckRowEl = document.getElementById("saveDeckRow");
+const deckNameInput = document.getElementById("deckNameInput");
+const saveDeckBtn = document.getElementById("saveDeckBtn");
+const cancelEditBtn = document.getElementById("cancelEditBtn");
+const noDecksEl = document.getElementById("noDecks");
+const savedDeckListEl = document.getElementById("savedDeckList");
 const playBtn = document.getElementById("playBtn");
 
 const cpuSideEl = document.getElementById("cpuSide");
@@ -52,6 +63,9 @@ const againBtn = document.getElementById("againBtn");
 const save = loadCardSave();
 let player = getCurrentPlayer(save);
 let selectedUids = []; // cards picked for the next hand
+let pickTab = "cards"; // "cards" or "decks"
+let selectedDeckId = null; // saved deck chosen for the next hand
+let editingDeckId = null; // saved deck being changed on the Cards tab
 let game = null;
 let claimPick = null;
 
@@ -102,10 +116,37 @@ function showDeck(notice) {
   const owned = new Set(collection.map((c) => c.uid));
   selectedUids = player.lastHand.filter((uid) => owned.has(uid)).slice(0, HAND_SIZE);
   if (collection.length === HAND_SIZE) selectedUids = collection.map((c) => c.uid);
+  editingDeckId = null;
+  // Coming back after playing a saved deck reopens My Decks with it chosen.
+  const lastDeck = player.decks.find((d) => d.id === player.lastDeckId && deckCardIds(player, d));
+  selectedDeckId = lastDeck ? lastDeck.id : null;
+  if (lastDeck) selectedUids = [...lastDeck.uids];
+  showPickTab(lastDeck ? "decks" : "cards");
+}
+
+function showPickTab(tab) {
+  pickTab = tab;
+  pickTabsEl.querySelectorAll("[role=tab]").forEach((btn) => {
+    const on = btn.dataset.tab === tab;
+    btn.classList.toggle("selected", on);
+    btn.setAttribute("aria-selected", String(on));
+  });
+  cardsTabEl.hidden = tab !== "cards";
+  decksTabEl.hidden = tab !== "decks";
   renderDeck();
 }
 
+pickTabsEl.addEventListener("click", (e) => {
+  const btn = e.target.closest("[role=tab]");
+  if (btn) showPickTab(btn.dataset.tab);
+});
+
 function renderDeck() {
+  savedDeckCountEl.textContent = player.decks.length;
+  if (pickTab === "decks") {
+    renderSavedDecks();
+    return;
+  }
   deckGridEl.innerHTML = "";
   sortedCollection(player).forEach((owned) => {
     const btn = document.createElement("button");
@@ -120,12 +161,132 @@ function renderDeck() {
 
   const count = selectedUids.length;
   playBtn.disabled = count !== HAND_SIZE;
+  const editing = player.decks.find((d) => d.id === editingDeckId);
+  editingNoteEl.hidden = !editing;
+  if (editing) editingNoteEl.textContent = `Editing "${editing.name}": change its cards or name, then tap Save Deck.`;
+  // Saving needs a full hand; a new deck also needs room in the deck list.
+  saveDeckRowEl.hidden = count !== HAND_SIZE && !editing;
+  saveDeckBtn.textContent = editing ? "Save Deck" : "Save as Deck";
+  saveDeckBtn.disabled = count !== HAND_SIZE || (!editing && player.decks.length >= MAX_DECKS);
+  cancelEditBtn.hidden = !editing;
+  if (!editing && document.activeElement !== deckNameInput) deckNameInput.placeholder = nextDeckName(player);
+
   if (playableCollection(player).length < HAND_SIZE) {
     setStatus(`You need at least ${HAND_SIZE} cards to play.`);
+  } else if (!editing && count === HAND_SIZE && player.decks.length >= MAX_DECKS) {
+    setStatus(`Hand ready. You have the most decks you can save (${MAX_DECKS}).`);
   } else {
     setStatus(`Choose ${HAND_SIZE} cards for your hand: ${count} / ${HAND_SIZE}`);
   }
 }
+
+// --- Saved decks ---
+function renderSavedDecks() {
+  noDecksEl.hidden = player.decks.length > 0;
+  savedDeckListEl.innerHTML = "";
+  player.decks.forEach((deck) => {
+    const ids = deckCardIds(player, deck);
+    const row = document.createElement("div");
+    row.className = "cc-deck-row";
+    row.classList.toggle("selected", deck.id === selectedDeckId);
+    row.dataset.id = deck.id;
+
+    const pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "cc-deck-pick";
+    pick.dataset.action = "pick";
+    pick.disabled = !ids;
+    pick.setAttribute("aria-pressed", String(deck.id === selectedDeckId));
+    const head = document.createElement("span");
+    head.className = "cc-deck-head";
+    const name = document.createElement("strong");
+    name.textContent = deck.name;
+    const info = document.createElement("span");
+    info.className = "cc-muted";
+    if (ids) {
+      const cards = ids.map(getCard);
+      const strength = cards.reduce((sum, card) => sum + cardTotal(card), 0);
+      const rares = cards.filter((card) => card.rarity !== "common").length;
+      info.textContent = `Strength ${strength}${rares ? ` · ${rares} rare+` : ""}`;
+    } else {
+      info.textContent = "A card in this deck is missing";
+    }
+    head.append(name, info);
+    const cardsRow = document.createElement("span");
+    cardsRow.className = "cc-deck-cards";
+    (ids || []).forEach((id) => cardsRow.appendChild(createCardEl(id)));
+    pick.append(head, cardsRow);
+
+    const actions = document.createElement("span");
+    actions.className = "cc-deck-actions";
+    [["edit", "Edit"], ["delete", "Delete"]].forEach(([action, label]) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cc-link-btn";
+      btn.dataset.action = action;
+      btn.textContent = label;
+      btn.setAttribute("aria-label", `${label} ${deck.name}`);
+      actions.appendChild(btn);
+    });
+    row.append(pick, actions);
+    savedDeckListEl.appendChild(row);
+  });
+
+  const chosen = player.decks.find((d) => d.id === selectedDeckId);
+  playBtn.disabled = !chosen;
+  if (chosen) setStatus(`Deck "${chosen.name}" chosen. Tap Play when you're ready.`);
+  else if (player.decks.length) setStatus("Pick one of your saved decks.");
+  else setStatus("You haven't saved any decks yet.");
+}
+
+savedDeckListEl.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-action]");
+  const row = e.target.closest(".cc-deck-row");
+  if (!btn || !row) return;
+  const deck = player.decks.find((d) => d.id === row.dataset.id);
+  if (!deck) return;
+  if (btn.dataset.action === "pick") {
+    selectedDeckId = deck.id;
+    selectedUids = [...deck.uids];
+    renderDeck();
+  } else if (btn.dataset.action === "edit") {
+    // Open the deck's cards on the Cards tab to change them or the name.
+    editingDeckId = deck.id;
+    selectedDeckId = null;
+    const playable = new Set(playableCollection(player).map((o) => o.uid));
+    selectedUids = deck.uids.filter((uid) => playable.has(uid));
+    deckNameInput.value = deck.name;
+    showPickTab("cards");
+  } else if (btn.dataset.action === "delete") {
+    if (!confirm(`Delete the deck "${deck.name}"? Its cards stay in your collection.`)) return;
+    deleteDeck(player, deck.id);
+    saveCardSave(save);
+    if (selectedDeckId === deck.id) {
+      selectedDeckId = null;
+      selectedUids = [];
+    }
+    renderDeck();
+  }
+});
+
+saveDeckBtn.addEventListener("click", () => {
+  const deck = saveDeck(player, { id: editingDeckId, name: deckNameInput.value, uids: selectedUids });
+  if (!deck) return;
+  saveCardSave(save);
+  const wasEditing = Boolean(editingDeckId);
+  editingDeckId = null;
+  selectedDeckId = deck.id;
+  deckNameInput.value = "";
+  renderDeck();
+  setStatus(wasEditing ? `Saved changes to "${deck.name}".` : `Saved "${deck.name}". It's in My Decks.`);
+});
+
+cancelEditBtn.addEventListener("click", () => {
+  editingDeckId = null;
+  deckNameInput.value = "";
+  selectedUids = [];
+  showPickTab("decks");
+});
 
 deckGridEl.addEventListener("click", (e) => {
   const btn = e.target.closest(".cc-pick");
@@ -136,12 +297,14 @@ deckGridEl.addEventListener("click", (e) => {
   } else if (selectedUids.length < HAND_SIZE) {
     selectedUids.push(uid);
   }
+  selectedDeckId = null; // hand-picked cards are no longer a saved deck
   renderDeck();
 });
 
 playBtn.addEventListener("click", () => {
   if (selectedUids.length !== HAND_SIZE) return;
   player.lastHand = [...selectedUids];
+  player.lastDeckId = pickTab === "decks" ? selectedDeckId : null;
   saveCardSave(save);
   startGame();
 });
@@ -153,6 +316,7 @@ function startGame() {
   game = {
     board: Array(9).fill(null), // { cardId, color, startColor }
     hands: { you: selectedUids.map((uid) => byUid[uid]), cpu: randomCards(HAND_SIZE) },
+    startHand: selectedUids.map((uid) => byUid[uid]), // for per-card stats
     color: { you: youFirst ? "red" : "blue", cpu: youFirst ? "blue" : "red" },
     turn: youFirst ? "you" : "cpu",
     cpuName: randomItem(CPU_NAMES),
@@ -221,9 +385,18 @@ function renderHand(side) {
       wrap.disabled = !yourTurn;
       wrap.setAttribute("aria-pressed", String(picked));
     }
-    wrap.appendChild(createCardEl(cardId, game.color[side]));
+    // The opponent's cards stay hidden until they're played.
+    wrap.appendChild(side === "you" ? createCardEl(cardId, game.color[side]) : hiddenCardEl(game.color[side]));
     handEl.appendChild(wrap);
   });
+}
+
+function hiddenCardEl(color) {
+  const el = document.createElement("div");
+  el.className = `cc-card-hidden ${color}`;
+  el.setAttribute("role", "img");
+  el.setAttribute("aria-label", "Face-down card");
+  return el;
 }
 
 // Each side scores its cards on the board plus the cards still in its hand,
@@ -338,6 +511,7 @@ function finishGame() {
     stats.currentStreak = 0;
   }
   const coins = awardCoins(player, result);
+  recordCardUse(player, game.startHand, result);
 
   player.history.unshift({
     at,

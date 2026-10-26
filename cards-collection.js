@@ -9,6 +9,15 @@ const statsGridEl = document.getElementById("statsGrid");
 const collectionGroupsEl = document.getElementById("collectionGroups");
 const showMissingEl = document.getElementById("showMissing");
 const groupByEl = document.getElementById("groupBy");
+const cardDialog = document.getElementById("cardDialog");
+const closeupCardEl = document.getElementById("closeupCard");
+const closeupTitleEl = document.getElementById("closeupTitle");
+const closeupMetaEl = document.getElementById("closeupMeta");
+const closeupStatsEl = document.getElementById("closeupStats");
+const closeupNoteEl = document.getElementById("closeupNote");
+const closeupCloseBtn = document.getElementById("closeupClose");
+
+const SOURCE_LABELS = { starter: "starter cards", won: "a win", pack: "a pack" };
 const historyListEl = document.getElementById("historyList");
 
 const RESULT_LABELS = {
@@ -123,23 +132,96 @@ function groupHeading(label, color, found, total) {
   return head;
 }
 
+// A card in the catalog. Cards not found yet show only their number and an
+// outline in their rarity's color; nothing else about them is revealed.
 function collectionItem(card, count) {
-  const item = document.createElement("div");
-  item.className = "cc-collect-item";
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "cc-collect-item cc-catalog-item";
   item.classList.toggle("missing", !count);
-  item.appendChild(createCardEl(card.id));
+  item.dataset.id = card.id;
+  const rarity = RARITIES[card.rarity];
+  item.appendChild(count ? createCardEl(card.id) : unfoundCardEl(card));
 
-  const caption = document.createElement("div");
-  caption.className = "cc-caption";
-  caption.innerHTML = `<span>#${card.no} ${escapeHtml(card.name)}</span><span class="cc-muted" style="color: ${RARITIES[card.rarity].color}">${RARITIES[card.rarity].label}</span>`;
-  item.appendChild(caption);
+  // An unfound card's outline already shows its number and rarity.
+  if (count) {
+    const caption = document.createElement("div");
+    caption.className = "cc-caption";
+    caption.innerHTML = `<span>#${card.no} ${escapeHtml(card.name)}</span><span class="cc-muted" style="color: ${rarity.color}">${rarity.label}</span>`;
+    item.appendChild(caption);
+  }
 
   const badge = document.createElement("span");
   badge.className = "cc-count";
-  badge.textContent = count ? `×${count}` : "Not owned";
+  badge.textContent = count ? `×${count}` : "Not found";
   item.appendChild(badge);
+  item.setAttribute("aria-label", count ? `${card.name}, ${count} owned` : `Card number ${card.no}, ${rarity.label}, not found yet`);
   return item;
 }
+
+function unfoundCardEl(card) {
+  const el = document.createElement("div");
+  el.className = "cc-card-unfound";
+  el.style.setProperty("--rarity-color", RARITIES[card.rarity].color);
+  el.innerHTML = `<span class="cc-unfound-no">#${card.no}</span><span class="cc-unfound-rarity">${RARITIES[card.rarity].label}</span>`;
+  return el;
+}
+
+// --- Close-up ---
+function statRow(label, value) {
+  const dt = document.createElement("dt");
+  dt.textContent = label;
+  const dd = document.createElement("dd");
+  dd.textContent = value;
+  closeupStatsEl.append(dt, dd);
+}
+
+function showCloseup(cardId) {
+  const card = getCard(cardId);
+  if (!card) return;
+  const rarity = RARITIES[card.rarity];
+  const set = cardSet(card);
+  const copies = playableCollection(player).filter((owned) => owned.cardId === card.id);
+  closeupCardEl.innerHTML = "";
+  closeupStatsEl.innerHTML = "";
+  closeupNoteEl.textContent = "";
+
+  if (!copies.length) {
+    closeupCardEl.appendChild(unfoundCardEl(card));
+    closeupTitleEl.textContent = `#${card.no} · Not found yet`;
+    closeupMetaEl.innerHTML = `<span style="color: ${rarity.color}">${rarity.label}</span> · ${set.icon} ${escapeHtml(set.name)}`;
+    closeupNoteEl.textContent = "Find it in a card pack, or capture it from an opponent and claim it after a win.";
+  } else {
+    closeupCardEl.appendChild(createCardEl(card.id));
+    closeupTitleEl.textContent = card.name;
+    closeupMetaEl.innerHTML = `#${card.no} · <span style="color: ${rarity.color}">${rarity.label}</span> · ${set.icon} ${escapeHtml(set.name)}`;
+    const stats = player.cardStats[card.id] || { played: 0, win: 0, loss: 0, draw: 0 };
+    statRow("Total (all 4 sides)", cardTotal(card));
+    statRow("Copies owned", copies.length);
+    statRow("Games played", stats.played);
+    statRow("Won · Lost · Drew", `${stats.win} · ${stats.loss} · ${stats.draw}`);
+    statRow("Win rate", stats.played ? `${Math.round((stats.win / stats.played) * 100)}%` : "–");
+    const first = copies.reduce((a, b) => (a.acquiredAt <= b.acquiredAt ? a : b));
+    if (first.acquiredAt) {
+      const when = new Date(first.acquiredAt).toLocaleDateString([], { dateStyle: "medium" });
+      statRow("First found", `${when}, from ${SOURCE_LABELS[first.source] || "your collection"}`);
+    }
+    if (!stats.played) closeupNoteEl.textContent = "Play it in a game to start its win / loss record.";
+  }
+  cardDialog.showModal();
+}
+
+collectionGroupsEl.addEventListener("click", (e) => {
+  const item = e.target.closest(".cc-catalog-item");
+  if (item) showCloseup(item.dataset.id);
+});
+
+closeupCloseBtn.addEventListener("click", () => cardDialog.close());
+
+// Tapping the dimmed area outside the close-up closes it too.
+cardDialog.addEventListener("click", (e) => {
+  if (e.target === cardDialog) cardDialog.close();
+});
 
 showMissingEl.addEventListener("change", renderCollection);
 

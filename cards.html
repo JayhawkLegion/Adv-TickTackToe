@@ -61,8 +61,30 @@
         </div>
       </div>
       <p id="deckNotice" class="cc-notice" hidden></p>
-      <div id="deckGrid" class="cc-grid" role="group" aria-label="Your collection"></div>
-      <button id="playBtn" class="reset-btn" disabled>Play</button>
+
+      <div id="pickTabs" class="size-options cc-tabs" role="tablist" aria-label="Choose your hand from">
+        <button type="button" role="tab" class="size-option selected" data-tab="cards" aria-selected="true">Cards</button>
+        <button type="button" role="tab" class="size-option" data-tab="decks" aria-selected="false">My Decks (<span id="savedDeckCount">0</span>)</button>
+      </div>
+
+      <!-- Pick individual cards -->
+      <div id="cardsTab" role="tabpanel">
+        <p id="editingNote" class="cc-notice" hidden></p>
+        <div id="deckGrid" class="cc-grid" role="group" aria-label="Your collection"></div>
+        <div id="saveDeckRow" class="cc-save-deck" hidden>
+          <input id="deckNameInput" class="cc-input" type="text" maxlength="20" autocomplete="off" aria-label="Deck name">
+          <button id="saveDeckBtn" type="button" class="reset-btn cc-secondary">Save as Deck</button>
+          <button id="cancelEditBtn" type="button" class="reset-btn cc-secondary" hidden>Cancel</button>
+        </div>
+      </div>
+
+      <!-- Pick a saved deck -->
+      <div id="decksTab" role="tabpanel" hidden>
+        <p id="noDecks" class="cc-note">No saved decks yet. Pick 5 cards on the Cards tab, name them and tap Save as Deck.</p>
+        <div id="savedDeckList" class="cc-deck-list"></div>
+      </div>
+
+      <button id="playBtn" class="reset-btn cc-play-btn" disabled>Play</button>
       <details class="cc-rules">
         <summary>How to play</summary>
         <ul>

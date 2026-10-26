@@ -37,6 +37,32 @@
       <button id="saveChancesBtn" type="submit" class="reset-btn">Save Chances</button>
     </form>
 
+    <!-- Pack settings -->
+    <h2 class="cc-heading">Card pack</h2>
+    <form id="packForm" novalidate>
+      <div class="cc-fields">
+        <label for="packNameInput">Name</label>
+        <input id="packNameInput" class="cc-input" type="text" maxlength="24" autocomplete="off">
+        <label for="packPriceInput">Price (coins)</label>
+        <input id="packPriceInput" class="cc-input" type="number" inputmode="numeric" min="1" max="100000" step="1">
+        <label for="packSizeInput">Cards per pack</label>
+        <select id="packSizeInput" class="cc-select"></select>
+      </div>
+      <div id="packOddsTable" class="cc-rarity-table">
+        <div class="cc-rarity-row cc-rarity-head">
+          <span>Rarity</span><span>Chance</span><span>Cards</span><span>Actual now</span>
+        </div>
+      </div>
+      <p id="packOddsTotal" class="cc-chance-total"></p>
+      <p id="packSummary" class="settings-hint"></p>
+      <p class="settings-hint">
+        Each card in a pack rolls its rarity with these odds, separately from the chances above.
+        Players see the actual odds on the Card Packs page.
+      </p>
+      <p id="packError" class="cc-error" hidden></p>
+      <button id="savePackBtn" type="submit" class="reset-btn">Save Pack</button>
+    </form>
+
     <!-- Build / edit a card -->
     <h2 id="formTitle" class="cc-heading">New card</h2>
     <form id="cardForm" class="cc-builder" autocomplete="off">
@@ -85,8 +111,9 @@
     <!-- Backup -->
     <h2 class="cc-heading">Backup</h2>
     <p class="settings-hint">
-      Cards you build are saved in this browser only. Export them to keep a copy or move them to another device,
-      then import that file there. Importing adds and updates cards; it never removes any.
+      Cards you build, the rarity chances and the pack settings are saved in this browser only. Export them to
+      keep a copy or move them to another device, then import that file there. Importing adds and updates cards;
+      it never removes any.
     </p>
     <div class="cc-form-actions">
       <button id="exportBtn" type="button" class="reset-btn cc-secondary">Export Cards</button>

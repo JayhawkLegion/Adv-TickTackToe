@@ -12,6 +12,15 @@ const chanceForm = document.getElementById("chanceForm");
 const rarityTableEl = document.getElementById("rarityTable");
 const chanceTotalEl = document.getElementById("chanceTotal");
 const saveChancesBtn = document.getElementById("saveChancesBtn");
+const packForm = document.getElementById("packForm");
+const packNameInput = document.getElementById("packNameInput");
+const packPriceInput = document.getElementById("packPriceInput");
+const packSizeInput = document.getElementById("packSizeInput");
+const packOddsTableEl = document.getElementById("packOddsTable");
+const packOddsTotalEl = document.getElementById("packOddsTotal");
+const packSummaryEl = document.getElementById("packSummary");
+const packErrorEl = document.getElementById("packError");
+const savePackBtn = document.getElementById("savePackBtn");
 
 const formTitleEl = document.getElementById("formTitle");
 const cardForm = document.getElementById("cardForm");
@@ -60,12 +69,15 @@ function ownedCounts() {
   return counts;
 }
 
-// --- Rarity chances ---
-const chanceInputs = {};
-const countCells = {};
-const actualCells = {};
+// --- Odds tables (rarity chances and pack odds) ---
+// One % per rarity (must total 100), with each rarity's card count and its
+// actual chance now (rarities with no cards pass their share on). `fallback`
+// gives the saved odds to show while the inputs don't add up.
+function oddsEditor(tableEl, totalEl, fallback, onChange) {
+  const inputs = {};
+  const countCells = {};
+  const actualCells = {};
 
-function buildChanceRows() {
   RARITY_ORDER.forEach((r) => {
     const row = document.createElement("div");
     row.className = "cc-rarity-row";
@@ -90,54 +102,120 @@ function buildChanceRows() {
     countCells[r] = document.createElement("span");
     actualCells[r] = document.createElement("span");
     actualCells[r].className = "cc-rarity-actual";
-    chanceInputs[r] = input;
+    inputs[r] = input;
     row.append(name, inputWrap, countCells[r], actualCells[r]);
-    rarityTableEl.appendChild(row);
-  });
-}
-
-function showChances(chances) {
-  RARITY_ORDER.forEach((r) => {
-    chanceInputs[r].value = chances[r];
-  });
-  updateChanceSummary();
-}
-
-function readChances() {
-  return Object.fromEntries(RARITY_ORDER.map((r) => [r, Number.parseFloat(chanceInputs[r].value)]));
-}
-
-function updateChanceSummary() {
-  const chances = readChances();
-  const filled = RARITY_ORDER.every((r) => Number.isFinite(chances[r]) && chances[r] >= 0);
-  const total = filled ? chancesTotal(chances) : NaN;
-  const ok = filled && isValidChances(chances);
-  const actual = effectiveChances(ok ? chances : RARITY_CHANCES);
-
-  RARITY_ORDER.forEach((r) => {
-    const count = CARD_POOL.filter((card) => card.rarity === r).length;
-    countCells[r].textContent = count;
-    actualCells[r].innerHTML = count
-      ? `${formatPct(actual[r])}<small>${formatPct(actual[r] / count)} per card</small>`
-      : `0%<small>no cards yet</small>`;
+    tableEl.appendChild(row);
   });
 
-  chanceTotalEl.classList.toggle("bad", !ok);
-  if (!filled) chanceTotalEl.textContent = "Enter a chance (0 or more) for every rarity.";
-  else if (!ok) chanceTotalEl.textContent = `Total: ${formatPct(total)}. The chances must add up to 100%.`;
-  else chanceTotalEl.textContent = "Total: 100% ✓";
+  function read() {
+    return Object.fromEntries(RARITY_ORDER.map((r) => [r, Number.parseFloat(inputs[r].value)]));
+  }
+
+  // Refreshes counts, actual chances and the total; returns whether valid.
+  function update() {
+    const odds = read();
+    const filled = RARITY_ORDER.every((r) => Number.isFinite(odds[r]) && odds[r] >= 0);
+    const ok = filled && isValidChances(odds);
+    const actual = effectiveChances(ok ? odds : fallback());
+    RARITY_ORDER.forEach((r) => {
+      const count = CARD_POOL.filter((card) => card.rarity === r).length;
+      countCells[r].textContent = count;
+      actualCells[r].innerHTML = count
+        ? `${formatPct(actual[r])}<small>${formatPct(actual[r] / count)} per card</small>`
+        : `0%<small>no cards yet</small>`;
+    });
+    totalEl.classList.toggle("bad", !ok);
+    if (!filled) totalEl.textContent = "Enter a chance (0 or more) for every rarity.";
+    else if (!ok) totalEl.textContent = `Total: ${formatPct(chancesTotal(odds))}. The chances must add up to 100%.`;
+    else totalEl.textContent = "Total: 100% ✓";
+    if (onChange) onChange(ok);
+    return ok;
+  }
+
+  tableEl.addEventListener("input", update);
+  return {
+    read,
+    update,
+    show(odds) {
+      RARITY_ORDER.forEach((r) => {
+        inputs[r].value = odds[r];
+      });
+      update();
+    },
+  };
+}
+
+const chanceEditor = oddsEditor(rarityTableEl, chanceTotalEl, () => RARITY_CHANCES, (ok) => {
   saveChancesBtn.disabled = !ok;
-}
-
-rarityTableEl.addEventListener("input", updateChanceSummary);
+});
 
 chanceForm.addEventListener("submit", (e) => {
   e.preventDefault();
-  const chances = readChances();
+  const chances = chanceEditor.read();
   if (!isValidChances(chances)) return;
   savePool(CARD_POOL, chances);
-  showChances(RARITY_CHANCES);
+  chanceEditor.show(RARITY_CHANCES);
   setStatus("Rarity chances saved.");
+});
+
+// --- Pack settings ---
+for (let n = 1; n <= PACK_LIMITS.maxSize; n++) packSizeInput.add(new Option(n, n));
+
+function readPack() {
+  return {
+    ...PACKS[0],
+    name: packNameInput.value.trim(),
+    price: Number(packPriceInput.value),
+    size: Number(packSizeInput.value),
+    odds: packOddsEditor.read(),
+  };
+}
+
+// Enables Save only when everything is valid, and explains what isn't.
+function updatePackForm() {
+  const pack = readPack();
+  let problem = "";
+  if (!pack.name) problem = "Give the pack a name.";
+  else if (!Number.isInteger(pack.price) || pack.price < 1 || pack.price > PACK_LIMITS.maxPrice) {
+    problem = `The price must be a whole number of coins from 1 to ${PACK_LIMITS.maxPrice.toLocaleString()}.`;
+  }
+  packErrorEl.hidden = !problem;
+  packErrorEl.textContent = problem;
+  savePackBtn.disabled = Boolean(problem) || !isValidPack(pack);
+  if (Number.isInteger(pack.price) && pack.price > 0) {
+    const fewest = Math.ceil(pack.price / COIN_REWARDS.win);
+    const most = Math.ceil(pack.price / COIN_REWARDS.loss);
+    packSummaryEl.textContent =
+      `Games pay ${COIN_REWARDS.win} coins for a win and ${COIN_REWARDS.loss} for a loss, so one pack takes ` +
+      `${fewest === most ? fewest : `${fewest}–${most}`} games.`;
+  } else {
+    packSummaryEl.textContent = "";
+  }
+}
+
+const packOddsEditor = oddsEditor(packOddsTableEl, packOddsTotalEl, () => PACKS[0].odds, () => {
+  if (packNameInput.value || packPriceInput.value) updatePackForm();
+});
+
+function showPack(pack) {
+  packNameInput.value = pack.name;
+  packPriceInput.value = pack.price;
+  packSizeInput.value = pack.size;
+  packOddsEditor.show(pack.odds);
+  updatePackForm();
+}
+
+[packNameInput, packPriceInput, packSizeInput].forEach((el) => {
+  el.addEventListener("input", updatePackForm);
+});
+
+packForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const pack = readPack();
+  if (!isValidPack(pack)) return;
+  savePool(CARD_POOL, RARITY_CHANCES, [pack, ...PACKS.slice(1)]);
+  showPack(PACKS[0]);
+  setStatus(`Saved the ${PACKS[0].name}: ${PACKS[0].size} cards for ${PACKS[0].price} coins.`);
 });
 
 // --- Building and editing cards ---
@@ -271,7 +349,8 @@ cardForm.addEventListener("submit", (e) => {
   savePool(pool, RARITY_CHANCES);
   setStatus(editingId ? `Saved changes to #${card.no} ${card.name}.` : `Added #${card.no} ${card.name} to the pool.`);
   loadForm(null);
-  updateChanceSummary();
+  chanceEditor.update();
+  packOddsEditor.update();
 });
 
 cancelEditBtn.addEventListener("click", () => {
@@ -286,7 +365,8 @@ deleteCardBtn.addEventListener("click", () => {
   savePool(CARD_POOL.filter((c) => c.id !== card.id), RARITY_CHANCES);
   setStatus(`Deleted ${card.name}.`);
   loadForm(null);
-  updateChanceSummary();
+  chanceEditor.update();
+  packOddsEditor.update();
 });
 
 // --- The pool ---
@@ -350,6 +430,7 @@ exportBtn.addEventListener("click", () => {
     version: 1,
     exportedAt: new Date().toISOString(),
     chances: RARITY_CHANCES,
+    packs: PACKS.map(cleanPack),
     cards: CARD_POOL.map(cleanCard),
   };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
@@ -360,7 +441,7 @@ exportBtn.addEventListener("click", () => {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  setStatus(`Exported ${CARD_POOL.length} cards and the rarity chances.`);
+  setStatus(`Exported ${CARD_POOL.length} cards, the rarity chances and the pack settings.`);
 });
 
 importBtn.addEventListener("click", () => importFile.click());
@@ -408,19 +489,24 @@ importFile.addEventListener("change", async () => {
 
   const imported = upgradeChances(data.chances);
   const chances = isValidChances(imported) ? imported : RARITY_CHANCES;
-  savePool(Object.values(byId), chances);
+  // Valid pack settings in the file replace the current ones.
+  const packs = PACKS.map((pack) => {
+    const fromFile = Array.isArray(data.packs) ? data.packs.find((p) => p && p.id === pack.id) : null;
+    return isValidPack(fromFile) ? cleanPack(fromFile) : pack;
+  });
+  savePool(Object.values(byId), chances, packs);
   const skipped = data.cards.length - valid.length;
   setStatus(
     `Imported ${added} new and ${updated} updated cards${skipped ? `; skipped ${skipped} invalid` : ""}.`
   );
-  showChances(RARITY_CHANCES);
+  chanceEditor.show(RARITY_CHANCES);
+  showPack(PACKS[0]);
   loadForm(null);
 });
 
 poolSearchEl.addEventListener("input", renderPool);
 poolRarityEl.addEventListener("change", renderPool);
 
-buildChanceRows();
 buildFormControls();
 // Filter options: rarities and custom cards, then each set.
 const rarityGroup = document.createElement("optgroup");
@@ -434,5 +520,6 @@ poolRarityEl.append(rarityGroup, setGroup);
 
 setSelect.add(new Option("No set (Other)", ""));
 CARD_SETS.forEach((set) => setSelect.add(new Option(`${set.icon} ${set.name}`, set.id)));
-showChances(RARITY_CHANCES);
+chanceEditor.show(RARITY_CHANCES);
+showPack(PACKS[0]);
 loadForm(null);

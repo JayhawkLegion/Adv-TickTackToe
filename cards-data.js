@@ -16,6 +16,8 @@ const DEFAULT_RARITY_CHANCES = { common: 70, rare: 20, epic: 8, legendary: 2 };
 const SIDES = ["top", "right", "bottom", "left"];
 const HAND_SIZE = 5;
 const STARTER_SIZE = 5;
+const MAX_DECKS = 20;
+const DECK_NAME_LENGTH = 20;
 
 // Coins: every game pays out by result, and coins buy card packs. New
 // players (and players from before coins existed) start with enough for
@@ -25,10 +27,13 @@ const COIN_REWARDS = { win: 30, draw: 15, loss: 10 };
 
 // Card packs. Each card in a pack rolls its rarity with the pack's own odds
 // (%), separate from the chances used for starter cards and the computer's
-// hand, then picks a card of that rarity at random.
-const PACKS = [
+// hand, then picks a card of that rarity at random. Name, price, size and
+// odds can be changed in the Card Builder (saved with the pool); PACKS holds
+// the current settings.
+const DEFAULT_PACKS = [
   { id: "standard", name: "Standard Pack", price: 100, size: 3, odds: { common: 65, rare: 27, epic: 6, legendary: 2 } },
 ];
+const PACK_LIMITS = { nameLength: 24, maxPrice: 100000, maxSize: 10 };
 const HISTORY_LIMIT = 20;
 const CARD_SAVE_KEY = "cardClashSave";
 const POOL_SAVE_KEY = "cardClashPool";
@@ -37,6 +42,7 @@ const BUILT_IN_BY_ID = Object.fromEntries(BUILT_IN_CARDS.map((card) => [card.id,
 let CARD_POOL;
 let CARDS_BY_ID;
 let RARITY_CHANCES;
+let PACKS;
 
 function isValidCard(card) {
   return Boolean(
@@ -100,6 +106,22 @@ function isValidChances(chances) {
   );
 }
 
+function isValidPack(pack) {
+  return Boolean(
+    pack &&
+      typeof pack.id === "string" &&
+      typeof pack.name === "string" && pack.name.trim() && pack.name.trim().length <= PACK_LIMITS.nameLength &&
+      Number.isInteger(pack.price) && pack.price >= 1 && pack.price <= PACK_LIMITS.maxPrice &&
+      Number.isInteger(pack.size) && pack.size >= 1 && pack.size <= PACK_LIMITS.maxSize &&
+      isValidChances(pack.odds)
+  );
+}
+
+function cleanPack(pack) {
+  const { id, name, price, size, odds } = pack;
+  return { id, name: name.trim(), price, size, odds: Object.fromEntries(RARITY_ORDER.map((r) => [r, odds[r]])) };
+}
+
 function loadPoolSave() {
   let saved = null;
   try {
@@ -114,7 +136,7 @@ function loadPoolSave() {
 // built-in card keeps its number; a custom card whose number is taken by
 // another card (e.g. after new built-in cards were added) moves to the next
 // free number.
-function applyPool(savedCards, chances) {
+function applyPool(savedCards, chances, packs) {
   const byId = Object.fromEntries(BUILT_IN_CARDS.map((card) => [card.id, { ...card }]));
   const custom = [];
   (savedCards || []).map(upgradeCard).filter(isValidCard).map(cleanCard).forEach((card) => {
@@ -133,19 +155,24 @@ function applyPool(savedCards, chances) {
   CARDS_BY_ID = Object.fromEntries(CARD_POOL.map((card) => [card.id, card]));
   chances = upgradeChances(chances);
   RARITY_CHANCES = isValidChances(chances) ? { ...chances } : { ...DEFAULT_RARITY_CHANCES };
+  // A saved pack replaces the default with the same id; invalid ones are ignored.
+  PACKS = DEFAULT_PACKS.map((def) => {
+    const saved = (packs || []).find((p) => p && p.id === def.id);
+    return isValidPack(saved) ? cleanPack(saved) : cleanPack(def);
+  });
 }
 
 // Saves only custom cards and edited built-in cards, so later changes to the
 // built-in list still reach players who never edited those cards.
-function savePool(pool, chances) {
+function savePool(pool, chances, packs = PACKS) {
   const cards = pool.filter((card) => !BUILT_IN_BY_ID[card.id] || !sameCard(card, BUILT_IN_BY_ID[card.id]));
-  localStorage.setItem(POOL_SAVE_KEY, JSON.stringify({ cards: cards.map(cleanCard), chances }));
-  applyPool(cards, chances);
+  localStorage.setItem(POOL_SAVE_KEY, JSON.stringify({ cards: cards.map(cleanCard), chances, packs: packs.map(cleanPack) }));
+  applyPool(cards, chances, packs);
 }
 
 function loadPool() {
   const saved = loadPoolSave();
-  applyPool(saved.cards, saved.chances);
+  applyPool(saved.cards, saved.chances, saved.packs);
 }
 
 loadPool();
@@ -287,6 +314,10 @@ function makeOwnedCard(cardId, source) {
 function normalizePlayer(player) {
   player.stats = { ...emptyStats(), ...player.stats };
   if (!Number.isFinite(player.coins)) player.coins = STARTING_COINS;
+  player.cardStats = player.cardStats || {};
+  player.decks = Array.isArray(player.decks)
+    ? player.decks.filter((d) => d && typeof d.id === "string" && typeof d.name === "string" && Array.isArray(d.uids))
+    : [];
   player.collection = player.collection || [];
   player.collection.forEach((owned) => {
     owned.cardId = upgradeId(owned.cardId);
@@ -334,6 +365,8 @@ function createPlayer(data, name) {
     createdAt: Date.now(),
     collection: randomCards(STARTER_SIZE).map((cardId) => makeOwnedCard(cardId, "starter")),
     coins: STARTING_COINS,
+    cardStats: {},
+    decks: [],
     lastHand: [],
     stats: emptyStats(),
     history: [],
@@ -342,6 +375,62 @@ function createPlayer(data, name) {
   data.players[player.id] = player;
   data.currentPlayerId = player.id;
   return player;
+}
+
+// --- Saved decks ---
+// A deck is a named set of 5 owned card copies (by uid) to play with later:
+// { id, name, uids, createdAt, updatedAt }.
+
+// The deck's card ids, or null if any of its copies is no longer playable.
+function deckCardIds(player, deck) {
+  const byUid = Object.fromEntries(playableCollection(player).map((owned) => [owned.uid, owned.cardId]));
+  const ids = deck.uids.map((uid) => byUid[uid]);
+  return ids.length === HAND_SIZE && ids.every(Boolean) ? ids : null;
+}
+
+function nextDeckName(player) {
+  let n = player.decks.length + 1;
+  while (player.decks.some((d) => d.name === `Deck ${n}`)) n++;
+  return `Deck ${n}`;
+}
+
+// Creates a deck, or updates the one with `id`. Returns the deck, or null if
+// the cards aren't 5 different owned copies or the deck limit is reached.
+// The caller saves.
+function saveDeck(player, { id, name, uids }) {
+  const owned = new Set(playableCollection(player).map((o) => o.uid));
+  if (uids.length !== HAND_SIZE || new Set(uids).size !== HAND_SIZE || !uids.every((u) => owned.has(u))) return null;
+  const clean = name.trim().replace(/\s+/g, " ").slice(0, DECK_NAME_LENGTH);
+  const existing = id && player.decks.find((d) => d.id === id);
+  if (existing) {
+    existing.name = clean || existing.name;
+    existing.uids = [...uids];
+    existing.updatedAt = Date.now();
+    return existing;
+  }
+  if (player.decks.length >= MAX_DECKS) return null;
+  const deck = { id: newId("d_"), name: clean || nextDeckName(player), uids: [...uids], createdAt: Date.now() };
+  player.decks.push(deck);
+  return deck;
+}
+
+function deleteDeck(player, id) {
+  player.decks = player.decks.filter((d) => d.id !== id);
+  if (player.lastDeckId === id) player.lastDeckId = null;
+}
+
+// Per-card record of the games a card was in the player's hand:
+// { played, win, loss, draw }. A card twice in one hand counts once.
+function recordCardUse(player, cardIds, result) {
+  [...new Set(cardIds)].forEach((id) => {
+    const stats = (player.cardStats[id] = player.cardStats[id] || { played: 0, win: 0, loss: 0, draw: 0 });
+    stats.played++;
+    stats[result]++;
+  });
+}
+
+function cardTotal(card) {
+  return SIDES.reduce((sum, side) => sum + card[side], 0);
 }
 
 // Pays a game's coins to the player; returns the amount.

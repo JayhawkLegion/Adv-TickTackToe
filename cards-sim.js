@@ -69,6 +69,18 @@ function savedHand() {
   return hand.length === HAND_SIZE ? hand : null;
 }
 
+// The fixed hand for "My saved hand" or one of the player's saved decks
+// ("deck:<id>"); null for the random choices.
+function fixedHand() {
+  const value = youCardsEl.value;
+  if (value === "saved") return savedHand();
+  if (value.startsWith("deck:")) {
+    const deck = player.decks.find((d) => d.id === value.slice(5));
+    return deck ? deckCardIds(player, deck) : null;
+  }
+  return null;
+}
+
 function setupOptions() {
   Object.entries(PLAY_STYLES).forEach(([key, label]) => {
     youStyleEl.add(new Option(label, key));
@@ -79,11 +91,18 @@ function setupOptions() {
   youCardsEl.querySelector('[value="saved"]').disabled = !saved;
   youCardsEl.querySelector('[value="collection"]').disabled = owned < HAND_SIZE;
   if (!saved) youCardsEl.value = owned >= HAND_SIZE ? "collection" : "pool";
+  const decks = player ? player.decks.filter((deck) => deckCardIds(player, deck)) : [];
+  if (decks.length) {
+    const group = document.createElement("optgroup");
+    group.label = "My decks";
+    decks.forEach((deck) => group.append(new Option(`Deck: ${deck.name}`, `deck:${deck.id}`)));
+    youCardsEl.append(group);
+  }
   renderSavedHand();
 }
 
 function renderSavedHand() {
-  const hand = youCardsEl.value === "saved" ? savedHand() : null;
+  const hand = fixedHand();
   savedHandEl.hidden = !hand;
   savedHandEl.innerHTML = "";
   (hand || []).forEach((cardId) => {
@@ -107,8 +126,8 @@ function shuffled(list) {
 
 // The two hands, who goes first and how each side plays, for one game.
 function newSetup() {
-  let you;
-  if (youCardsEl.value === "saved") you = savedHand();
+  let you = fixedHand();
+  if (you) you = [...you];
   else if (youCardsEl.value === "collection") you = shuffled(playableCollection(player)).slice(0, HAND_SIZE).map((o) => o.cardId);
   else you = randomCards(HAND_SIZE);
   const first = firstSideEl.value === "coin" ? (Math.random() < 0.5 ? "you" : "opp") : firstSideEl.value;
@@ -346,7 +365,8 @@ function runGames(count) {
 }
 
 function setupSummary() {
-  const cards = youCardsEl.options[youCardsEl.selectedIndex].text.toLowerCase();
+  const option = youCardsEl.options[youCardsEl.selectedIndex];
+  const cards = option.value.startsWith("deck:") ? option.text : option.text.toLowerCase();
   const first = { coin: "coin toss", you: "your side always first", opp: "opponent always first" }[firstSideEl.value];
   return `Your side: ${cards}, ${PLAY_STYLES[youStyleEl.value]}. Opponent: random cards, ${PLAY_STYLES[oppStyleEl.value]}. ${first[0].toUpperCase()}${first.slice(1)}.`;
 }

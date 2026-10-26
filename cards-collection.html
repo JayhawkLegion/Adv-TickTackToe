@@ -31,13 +31,15 @@
 
       <div class="cc-heading-row">
         <h2 class="cc-heading">Cards</h2>
-        <label class="cc-toggle"><input id="showMissing" type="checkbox"> Show cards I don't have</label>
+        <label class="cc-toggle"><input id="showMissing" type="checkbox"> Show cards not found yet</label>
       </div>
       <div id="groupBy" class="size-options cc-group-by" role="group" aria-label="Group cards by">
         <button type="button" class="size-option selected" data-group="set" aria-pressed="true">Sets</button>
         <button type="button" class="size-option" data-group="rarity" aria-pressed="false">Rarity</button>
       </div>
       <div id="collectionGroups"></div>
+
+      <p class="settings-hint cc-tap-hint">Tap a card for a close-up.</p>
 
       <h2 class="cc-heading">Recent games</h2>
       <ul id="historyList" class="cc-history"></ul>
@@ -47,6 +49,18 @@
       <a href="cards.html" class="reset-btn cc-btn-link">Back to Game</a>
     </div>
   </main>
+
+  <!-- Close-up of one card -->
+  <dialog id="cardDialog" class="cc-dialog" aria-labelledby="closeupTitle">
+    <div class="cc-closeup">
+      <div id="closeupCard" class="cc-closeup-card"></div>
+      <h2 id="closeupTitle" class="cc-closeup-title"></h2>
+      <p id="closeupMeta" class="cc-closeup-meta"></p>
+      <dl id="closeupStats" class="cc-closeup-stats"></dl>
+      <p id="closeupNote" class="settings-hint"></p>
+      <button id="closeupClose" type="button" class="reset-btn">Close</button>
+    </div>
+  </dialog>
 
   <script src="cards-pool.js"></script>
   <script src="cards-data.js"></script>
