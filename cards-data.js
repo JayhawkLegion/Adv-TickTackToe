@@ -16,6 +16,19 @@ const DEFAULT_RARITY_CHANCES = { common: 70, rare: 20, epic: 8, legendary: 2 };
 const SIDES = ["top", "right", "bottom", "left"];
 const HAND_SIZE = 5;
 const STARTER_SIZE = 5;
+
+// Coins: every game pays out by result, and coins buy card packs. New
+// players (and players from before coins existed) start with enough for
+// one pack.
+const STARTING_COINS = 100;
+const COIN_REWARDS = { win: 30, draw: 15, loss: 10 };
+
+// Card packs. Each card in a pack rolls its rarity with the pack's own odds
+// (%), separate from the chances used for starter cards and the computer's
+// hand, then picks a card of that rarity at random.
+const PACKS = [
+  { id: "standard", name: "Standard Pack", price: 100, size: 3, odds: { common: 65, rare: 27, epic: 6, legendary: 2 } },
+];
 const HISTORY_LIMIT = 20;
 const CARD_SAVE_KEY = "cardClashSave";
 const POOL_SAVE_KEY = "cardClashPool";
@@ -33,14 +46,23 @@ function isValidCard(card) {
       typeof card.icon === "string" && card.icon.trim() &&
       RARITIES[card.rarity] &&
       Number.isInteger(card.no) && card.no > 0 &&
+      (card.set === undefined || typeof card.set === "string") &&
       SIDES.every((side) => Number.isInteger(card[side]) && card[side] >= 1 && card[side] <= 10)
   );
 }
 
 // Only the fields a card is made of, so nothing else ends up in saves.
 function cleanCard(card) {
-  const { no, id, name, icon, rarity, left, top, right, bottom } = card;
-  return { no, id, name, icon, rarity, left, top, right, bottom };
+  const { no, id, name, icon, rarity, set, left, top, right, bottom } = card;
+  return { no, id, name, icon, rarity, ...(set ? { set } : {}), left, top, right, bottom };
+}
+
+// Cards with no set, or one that doesn't exist, are listed under "Other".
+const OTHER_SET = { id: "other", name: "Other", icon: "✨" };
+const SETS_BY_ID = Object.fromEntries(CARD_SETS.map((set) => [set.id, set]));
+
+function cardSet(card) {
+  return SETS_BY_ID[card.set] || OTHER_SET;
 }
 
 // Built-in cards used to have animal-name ids ("dog"); they're now based on
@@ -96,7 +118,9 @@ function applyPool(savedCards, chances) {
   const byId = Object.fromEntries(BUILT_IN_CARDS.map((card) => [card.id, { ...card }]));
   const custom = [];
   (savedCards || []).map(upgradeCard).filter(isValidCard).map(cleanCard).forEach((card) => {
-    if (BUILT_IN_BY_ID[card.id]) byId[card.id] = { ...card, no: BUILT_IN_BY_ID[card.id].no };
+    const builtIn = BUILT_IN_BY_ID[card.id];
+    // Edits saved before sets existed keep the built-in card's set.
+    if (builtIn) byId[card.id] = { ...card, no: builtIn.no, set: card.set || builtIn.set };
     else custom.push(card);
   });
   const used = new Set(Object.values(byId).map((card) => card.no));
@@ -150,8 +174,13 @@ function effectiveChances(chances = RARITY_CHANCES, pool = CARD_POOL) {
   return result;
 }
 
-function randomRarity() {
-  const chances = effectiveChances();
+// One decimal place, or two significant digits for small shares (0.047%).
+function formatPct(n) {
+  return `${Number(n >= 1 || n === 0 ? n.toFixed(1) : n.toPrecision(2))}%`;
+}
+
+function randomRarity(odds = RARITY_CHANCES) {
+  const chances = effectiveChances(odds);
   const live = RARITY_ORDER.filter((r) => chances[r] > 0);
   let roll = Math.random() * 100;
   for (const r of live) {
@@ -161,11 +190,12 @@ function randomRarity() {
   return live[live.length - 1];
 }
 
-// Each draw rolls a rarity by its chance, then picks a card of that rarity at
-// random. Draws are independent, so duplicates are possible.
-function randomCards(count) {
+// Each draw rolls a rarity by its chance (the Card Builder's rarity chances
+// unless other odds are given, e.g. a pack's), then picks a card of that
+// rarity at random. Draws are independent, so duplicates are possible.
+function randomCards(count, odds = RARITY_CHANCES) {
   return Array.from({ length: count }, () => {
-    const rarity = randomRarity();
+    const rarity = randomRarity(odds);
     return randomItem(CARD_POOL.filter((card) => card.rarity === rarity)).id;
   });
 }
@@ -240,7 +270,10 @@ function chooseMove(board, hand, color, style = "smart") {
 // allowed), their last chosen hand, stats, recent game history, and a
 // pending card claim if they won but haven't picked their reward yet.
 function emptyStats() {
-  return { played: 0, wins: 0, losses: 0, draws: 0, currentStreak: 0, bestStreak: 0, cardsClaimed: 0, flipsMade: 0 };
+  return {
+    played: 0, wins: 0, losses: 0, draws: 0, currentStreak: 0, bestStreak: 0, cardsClaimed: 0, flipsMade: 0,
+    coinsEarned: 0, coinsSpent: 0, packsOpened: 0,
+  };
 }
 
 function newId(prefix) {
@@ -253,6 +286,7 @@ function makeOwnedCard(cardId, source) {
 
 function normalizePlayer(player) {
   player.stats = { ...emptyStats(), ...player.stats };
+  if (!Number.isFinite(player.coins)) player.coins = STARTING_COINS;
   player.collection = player.collection || [];
   player.collection.forEach((owned) => {
     owned.cardId = upgradeId(owned.cardId);
@@ -299,6 +333,7 @@ function createPlayer(data, name) {
     name,
     createdAt: Date.now(),
     collection: randomCards(STARTER_SIZE).map((cardId) => makeOwnedCard(cardId, "starter")),
+    coins: STARTING_COINS,
     lastHand: [],
     stats: emptyStats(),
     history: [],
@@ -307,6 +342,33 @@ function createPlayer(data, name) {
   data.players[player.id] = player;
   data.currentPlayerId = player.id;
   return player;
+}
+
+// Pays a game's coins to the player; returns the amount.
+function awardCoins(player, result) {
+  const coins = COIN_REWARDS[result] || 0;
+  player.coins += coins;
+  player.stats.coinsEarned += coins;
+  return coins;
+}
+
+// Buys and opens a pack: takes its price from the player's coins and adds
+// its cards to their collection. Returns the drawn card ids, each marked
+// `isNew` if the player had no copy before (only the first copy counts), or
+// null if they can't afford it. The caller saves.
+function openPack(player, pack) {
+  if (player.coins < pack.price) return null;
+  const ownedBefore = new Set(player.collection.map((owned) => owned.cardId));
+  const cardIds = randomCards(pack.size, pack.odds);
+  player.coins -= pack.price;
+  player.stats.coinsSpent += pack.price;
+  player.stats.packsOpened++;
+  return cardIds.map((cardId) => {
+    const isNew = !ownedBefore.has(cardId);
+    ownedBefore.add(cardId);
+    player.collection.push(makeOwnedCard(cardId, "pack"));
+    return { cardId, isNew };
+  });
 }
 
 // Owned cards whose card still exists in the pool. Unknown cards stay in the

@@ -8,6 +8,7 @@ const playerInfoEl = document.getElementById("playerInfo");
 const statsGridEl = document.getElementById("statsGrid");
 const collectionGroupsEl = document.getElementById("collectionGroups");
 const showMissingEl = document.getElementById("showMissing");
+const groupByEl = document.getElementById("groupBy");
 const historyListEl = document.getElementById("historyList");
 
 const RESULT_LABELS = {
@@ -31,6 +32,9 @@ function renderStats() {
     ["Best streak", s.bestStreak],
     ["Cards won", s.cardsClaimed],
     ["Cards flipped", s.flipsMade],
+    ["Coins", player.coins.toLocaleString()],
+    ["Coins earned", s.coinsEarned.toLocaleString()],
+    ["Packs opened", s.packsOpened],
   ];
   statsGridEl.innerHTML = "";
   rows.forEach(([label, value]) => {
@@ -45,7 +49,25 @@ function renderStats() {
   });
 }
 
-// Owned cards grouped by rarity, with how many of each rarity's cards the
+let groupBy = "set";
+
+// The groups the collection is shown in: each set (and "Other" for cards
+// without one), or each rarity.
+function collectionGroups() {
+  if (groupBy === "rarity") {
+    return RARITY_ORDER.map((r) => ({
+      label: RARITIES[r].label,
+      color: RARITIES[r].color,
+      cards: CARD_POOL.filter((card) => card.rarity === r),
+    }));
+  }
+  return [...CARD_SETS, OTHER_SET].map((set) => ({
+    label: `${set.icon} ${set.name}`,
+    cards: CARD_POOL.filter((card) => cardSet(card).id === set.id),
+  }));
+}
+
+// Owned cards by set or rarity, each group with how many of its cards the
 // player has found. Cards they don't own are shown only on request, since
 // the pool runs to hundreds of cards.
 function renderCollection() {
@@ -55,21 +77,16 @@ function renderCollection() {
   });
 
   collectionGroupsEl.innerHTML = "";
-  RARITY_ORDER.forEach((rarity) => {
-    const cards = CARD_POOL.filter((card) => card.rarity === rarity);
+  collectionGroups().forEach(({ label, color, cards }) => {
     if (!cards.length) return;
     const found = cards.filter((card) => counts[card.id]).length;
-    const heading = document.createElement("h3");
-    heading.className = "cc-rarity-heading";
-    heading.style.color = RARITIES[rarity].color;
-    heading.textContent = `${RARITIES[rarity].label} · ${found} of ${cards.length}`;
-    collectionGroupsEl.appendChild(heading);
+    collectionGroupsEl.appendChild(groupHeading(label, color, found, cards.length));
 
     const shown = showMissingEl.checked ? cards : cards.filter((card) => counts[card.id]);
     if (!shown.length) {
       const none = document.createElement("p");
       none.className = "cc-muted cc-none";
-      none.textContent = `No ${RARITIES[rarity].label.toLowerCase()} cards yet.`;
+      none.textContent = "None found yet.";
       collectionGroupsEl.appendChild(none);
       return;
     }
@@ -78,6 +95,32 @@ function renderCollection() {
     shown.forEach((card) => grid.appendChild(collectionItem(card, counts[card.id] || 0)));
     collectionGroupsEl.appendChild(grid);
   });
+}
+
+// Group name, "found / total" and a progress meter.
+function groupHeading(label, color, found, total) {
+  const head = document.createElement("div");
+  head.className = "cc-group-head";
+  const title = document.createElement("h3");
+  title.className = "cc-rarity-heading";
+  if (color) title.style.color = color;
+  title.textContent = label;
+  const count = document.createElement("span");
+  count.className = "cc-group-count";
+  count.textContent = found === total ? `✓ Complete · ${total}` : `${found} / ${total}`;
+  const meter = document.createElement("div");
+  meter.className = "cc-meter";
+  meter.setAttribute("role", "progressbar");
+  meter.setAttribute("aria-label", `${label}: ${found} of ${total} found`);
+  meter.setAttribute("aria-valuemin", "0");
+  meter.setAttribute("aria-valuemax", String(total));
+  meter.setAttribute("aria-valuenow", String(found));
+  const fill = document.createElement("span");
+  fill.style.width = `${(found / total) * 100}%`;
+  if (found) fill.style.minWidth = "4px"; // a first find still shows
+  meter.appendChild(fill);
+  head.append(title, count, meter);
+  return head;
 }
 
 function collectionItem(card, count) {
@@ -99,6 +142,17 @@ function collectionItem(card, count) {
 }
 
 showMissingEl.addEventListener("change", renderCollection);
+
+groupByEl.addEventListener("click", (e) => {
+  const btn = e.target.closest(".size-option");
+  if (!btn) return;
+  groupBy = btn.dataset.group;
+  groupByEl.querySelectorAll(".size-option").forEach((b) => {
+    b.classList.toggle("selected", b === btn);
+    b.setAttribute("aria-pressed", String(b === btn));
+  });
+  renderCollection();
+});
 
 function renderHistory() {
   historyListEl.innerHTML = "";

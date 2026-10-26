@@ -18,6 +18,7 @@ const cardForm = document.getElementById("cardForm");
 const previewEl = document.getElementById("cardPreview");
 const nameInput = document.getElementById("cardName");
 const iconInput = document.getElementById("cardIcon");
+const setSelect = document.getElementById("cardSet");
 const emojiPicksEl = document.getElementById("emojiPicks");
 const rarityOptionsEl = document.getElementById("rarityOptions");
 const formNoteEl = document.getElementById("formNote");
@@ -46,11 +47,6 @@ let draft = blankDraft();
 
 function setStatus(text) {
   statusEl.textContent = text;
-}
-
-// One decimal place, or two significant digits for small shares (0.047%).
-function formatPct(n) {
-  return `${Number(n >= 1 || n === 0 ? n.toFixed(1) : n.toPrecision(2))}%`;
 }
 
 // How many copies of each card all players on this device own.
@@ -146,7 +142,7 @@ chanceForm.addEventListener("submit", (e) => {
 
 // --- Building and editing cards ---
 function blankDraft() {
-  return { name: "", icon: "", rarity: "common", top: 1, right: 1, bottom: 1, left: 1 };
+  return { name: "", icon: "", rarity: "common", set: "", top: 1, right: 1, bottom: 1, left: 1 };
 }
 
 function buildFormControls() {
@@ -189,9 +185,10 @@ function showError(message) {
 // card: an existing card to edit, or null to start a new one.
 function loadForm(card) {
   editingId = card ? card.id : null;
-  draft = card ? { ...card } : blankDraft();
+  draft = card ? { ...card, set: card.set || "" } : blankDraft();
   nameInput.value = draft.name;
   iconInput.value = draft.icon;
+  setSelect.value = SETS_BY_ID[draft.set] ? draft.set : "";
   SIDES.forEach((side) => {
     sideSelects[side].value = draft[side];
   });
@@ -258,7 +255,10 @@ cardForm.addEventListener("submit", (e) => {
   if (clash) return showError(`There's already a card named ${clash.name} (#${clash.no}).`);
   if (!icon) return showError("Pick a picture (an emoji) for the card.");
 
-  const fields = { name, icon, rarity: draft.rarity, top: draft.top, right: draft.right, bottom: draft.bottom, left: draft.left };
+  const fields = {
+    name, icon, rarity: draft.rarity, set: setSelect.value || undefined,
+    top: draft.top, right: draft.right, bottom: draft.bottom, left: draft.left,
+  };
   let card;
   let pool;
   if (editingId) {
@@ -290,12 +290,15 @@ deleteCardBtn.addEventListener("click", () => {
 });
 
 // --- The pool ---
-// Cards matching the search box (name, or #number) and rarity filter.
+// Cards matching the search box (name, or #number) and the rarity / set
+// filter ("rare", "custom", "set:ocean", "set:other").
 function filteredPool() {
   const query = poolSearchEl.value.trim().toLowerCase().replace(/^#/, "");
-  const rarity = poolRarityEl.value;
+  const filter = poolRarityEl.value;
   return CARD_POOL.filter((card) => {
-    if (rarity === "custom" ? BUILT_IN_BY_ID[card.id] : rarity && card.rarity !== rarity) return false;
+    if (filter === "custom" && BUILT_IN_BY_ID[card.id]) return false;
+    if (filter.startsWith("set:") && cardSet(card).id !== filter.slice(4)) return false;
+    if (RARITIES[filter] && card.rarity !== filter) return false;
     return !query || card.name.toLowerCase().includes(query) || String(card.no) === query;
   });
 }
@@ -322,6 +325,7 @@ function renderPool() {
     caption.innerHTML = `
       <span>#${card.no} ${escapeHtml(card.name)}</span>
       <span class="cc-muted" style="color: ${RARITIES[card.rarity].color}">${RARITIES[card.rarity].label}</span>
+      <span class="cc-muted">${cardSet(card).icon} ${escapeHtml(cardSet(card).name)}</span>
       <span class="cc-muted">${kind}${owned[card.id] ? ` · owned ×${owned[card.id]}` : ""}</span>
     `;
     btn.appendChild(caption);
@@ -418,7 +422,17 @@ poolRarityEl.addEventListener("change", renderPool);
 
 buildChanceRows();
 buildFormControls();
-RARITY_ORDER.forEach((r) => poolRarityEl.add(new Option(RARITIES[r].label, r)));
-poolRarityEl.add(new Option("Custom", "custom"));
+// Filter options: rarities and custom cards, then each set.
+const rarityGroup = document.createElement("optgroup");
+rarityGroup.label = "Rarity";
+RARITY_ORDER.forEach((r) => rarityGroup.append(new Option(RARITIES[r].label, r)));
+rarityGroup.append(new Option("Custom cards", "custom"));
+const setGroup = document.createElement("optgroup");
+setGroup.label = "Set";
+[...CARD_SETS, OTHER_SET].forEach((set) => setGroup.append(new Option(`${set.icon} ${set.name}`, `set:${set.id}`)));
+poolRarityEl.append(rarityGroup, setGroup);
+
+setSelect.add(new Option("No set (Other)", ""));
+CARD_SETS.forEach((set) => setSelect.add(new Option(`${set.icon} ${set.name}`, set.id)));
 showChances(RARITY_CHANCES);
 loadForm(null);

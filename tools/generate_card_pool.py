@@ -38,6 +38,26 @@ ANIMALS = [
     ("Rhino", "🦏"), ("Tiger", "🐯"), ("Lion", "🦁"), ("Elephant", "🐘"),
 ]
 
+# Themed sets for the collection binder. Every animal belongs to exactly one
+# set, and so do all of its cards (its common card and its rare versions).
+SETS = [
+    ("bugs", "Bugs", "🐞", ["Worm", "Ant", "Fly", "Mosquito", "Ladybug", "Caterpillar", "Snail", "Cricket",
+                          "Cockroach", "Beetle", "Butterfly", "Bee", "Spider", "Scorpion"]),
+    ("ocean", "Ocean", "🌊", ["Oyster", "Shrimp", "Fish", "Reef Fish", "Crab", "Pufferfish", "Squid", "Lobster",
+                            "Octopus", "Seal", "Dolphin", "Shark", "Whale"]),
+    ("birds", "Birds", "🪶", ["Chick", "Sparrow", "Dove", "Duck", "Chicken", "Parrot", "Rooster", "Turkey",
+                            "Peacock", "Penguin", "Swan", "Flamingo", "Owl", "Eagle"]),
+    ("river", "River & Swamp", "🐸", ["Frog", "Lizard", "Turtle", "Snake", "Crocodile", "Otter", "Beaver", "Hippo"]),
+    ("pets", "Pets", "🏠", ["Mouse", "Hamster", "Rat", "Rabbit", "Cat", "Black Cat", "Dog", "Poodle"]),
+    ("farm", "Farm", "🚜", ["Sheep", "Goat", "Ram", "Pig", "Cow", "Ox", "Horse", "Llama", "Buffalo"]),
+    ("forest", "Forest", "🌲", ["Chipmunk", "Hedgehog", "Bat", "Skunk", "Raccoon", "Badger", "Fox", "Deer",
+                              "Wolf", "Boar", "Bear"]),
+    ("wild", "Wild", "🌍", ["Sloth", "Koala", "Monkey", "Panda", "Kangaroo", "Camel", "Zebra", "Orangutan",
+                          "Leopard", "Giraffe", "Bison", "Gorilla", "Polar Bear", "Rhino", "Tiger", "Lion",
+                          "Elephant"]),
+]
+SET_OF = {animal: set_id for set_id, _, _, animals in SETS for animal in animals}
+
 # Rare cards reuse animals, so each gets a title, weakest to strongest within
 # that animal's cards ("Wild Wolf" ... "Royal Wolf").
 RARE_TITLES = ["Wild", "Swift", "Shadow", "Golden", "Royal", "Ancient"]
@@ -99,30 +119,35 @@ def split_evenly(items, parts):
 
 
 def build():
+    animals = [name for name, _ in ANIMALS]
+    grouped = [animal for _, _, _, members in SETS for animal in members]
+    assert sorted(grouped) == sorted(animals), "every animal must be in exactly one set"
+
     cards = []
     commons = strength_order(common_rule, 3)
     for sides, (name, icon) in zip(commons, ANIMALS):
-        cards.append(("common", sides, name, icon))
+        cards.append(("common", sides, name, icon, SET_OF[name]))
 
     rares = strength_order(rare_rule, 5)
     for group, (name, icon) in zip(split_evenly(rares, len(ANIMALS)), ANIMALS):
         for title, sides in zip(RARE_TITLES, group):
-            cards.append(("rare", sides, f"{title} {name}", icon))
+            cards.append(("rare", sides, f"{title} {name}", icon, SET_OF[name]))
 
     assert len(commons) == 81 and len(cards) == 81 + len(rares)
-    assert len({n for _, _, n, _ in cards}) == len(cards), "names must be unique"
+    assert len({c[2] for c in cards}) == len(cards), "names must be unique"
     return cards
 
 
 def write(cards):
     lines = []
-    for no, (rarity, (left, top, right, bottom), name, icon) in enumerate(cards, start=1):
+    for no, (rarity, (left, top, right, bottom), name, icon, set_id) in enumerate(cards, start=1):
         if no == 1 or rarity != cards[no - 2][0]:
             lines.append(f"  // {rarity.capitalize()}")
         lines.append(
             f'  {{ no: {no}, id: "{card_id(rarity, (left, top, right, bottom))}", name: "{name}", icon: "{icon}", '
-            f'rarity: "{rarity}", left: {left}, top: {top}, right: {right}, bottom: {bottom} }},'
+            f'rarity: "{rarity}", set: "{set_id}", left: {left}, top: {top}, right: {right}, bottom: {bottom} }},'
         )
+    set_lines = [f'  {{ id: "{set_id}", name: "{name}", icon: "{icon}" }},' for set_id, name, icon, _ in SETS]
     legacy = [f'"{old}": "{card_id("common", tuple(map(int, sides.split("-"))))}"' for old, sides in LEGACY_IDS.items()]
     legacy_lines = ["  " + ", ".join(legacy[i:i + 3]) + "," for i in range(0, len(legacy), 3)]
 
@@ -134,6 +159,12 @@ def write(cards):
 // Numbered weakest to strongest by side total within each rarity, with
 // animals picked to match. Cards built in the Card Builder, and edits to
 // these, are saved in the browser and merged on top by cards-data.js.
+
+// Themed sets shown on the collection page; each card's `set` is one of these.
+const CARD_SETS = [
+{chr(10).join(set_lines)}
+];
+
 const BUILT_IN_CARDS = [
 {chr(10).join(lines)}
 ];

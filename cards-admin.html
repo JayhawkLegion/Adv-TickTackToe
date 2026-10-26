@@ -58,6 +58,9 @@
       <label>Rarity</label>
       <div id="rarityOptions" class="size-options"></div>
 
+      <label for="cardSet">Set</label>
+      <select id="cardSet" class="cc-select"></select>
+
       <p id="formNote" class="settings-hint"></p>
       <p id="formError" class="cc-error" hidden></p>
 
@@ -72,7 +75,7 @@
     <h2 class="cc-heading">Card pool (<span id="poolCount">0</span>)</h2>
     <div class="cc-pool-filters">
       <input id="poolSearch" class="cc-input" type="search" placeholder="Search name or #number" aria-label="Search cards">
-      <select id="poolRarity" class="cc-side-select" aria-label="Show rarity">
+      <select id="poolRarity" class="cc-side-select" aria-label="Show rarity or set">
         <option value="">All</option>
       </select>
     </div>

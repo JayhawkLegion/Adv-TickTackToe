@@ -55,7 +55,10 @@
           <strong id="deckName"></strong>
           <span id="deckRecord" class="cc-muted"></span>
         </div>
-        <a href="cards-collection.html" class="cc-link">Collection &amp; Stats</a>
+        <div class="cc-profile-links">
+          <a href="cards-packs.html" class="cc-link">🪙 <span id="deckCoins">0</span> · Packs</a>
+          <a href="cards-collection.html" class="cc-link">Collection &amp; Stats</a>
+        </div>
       </div>
       <p id="deckNotice" class="cc-notice" hidden></p>
       <div id="deckGrid" class="cc-grid" role="group" aria-label="Your collection"></div>
@@ -69,6 +72,7 @@
           <li>When all 9 squares are full, each player scores the cards in their color on the board plus any card still in their hand. The player who went second always has one card left, and it counts.</li>
           <li>The higher score wins. A 5–5 tie is a draw.</li>
           <li>Win, and you may add one of your opponent's cards that ended in your color to your collection. You never lose your own cards.</li>
+          <li id="coinRule"></li>
         </ul>
       </details>
     </section>
@@ -95,10 +99,14 @@
 
       <div id="resultPanel" class="cc-result" hidden>
         <p id="resultScore" class="cc-result-score"></p>
+        <p id="resultCoins" class="cc-result-coins" hidden></p>
         <p id="resultText" class="cc-note"></p>
         <div id="claimChoices" class="cc-hand" role="group" aria-label="Cards you can claim"></div>
         <button id="claimBtn" class="reset-btn" hidden disabled>Add to Collection</button>
-        <button id="againBtn" class="reset-btn" hidden>Play Again</button>
+        <div class="cc-form-actions">
+          <button id="againBtn" class="reset-btn" hidden>Play Again</button>
+          <a id="packsLink" href="cards-packs.html" class="reset-btn cc-btn-link cc-secondary" hidden></a>
+        </div>
       </div>
     </section>
   </main>

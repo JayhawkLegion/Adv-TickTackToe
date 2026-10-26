@@ -25,6 +25,7 @@ const nameInput = document.getElementById("nameInput");
 
 const deckNameEl = document.getElementById("deckName");
 const deckRecordEl = document.getElementById("deckRecord");
+const deckCoinsEl = document.getElementById("deckCoins");
 const deckNoticeEl = document.getElementById("deckNotice");
 const deckGridEl = document.getElementById("deckGrid");
 const playBtn = document.getElementById("playBtn");
@@ -41,6 +42,8 @@ const boardEl = document.getElementById("ccBoard");
 
 const resultPanelEl = document.getElementById("resultPanel");
 const resultScoreEl = document.getElementById("resultScore");
+const resultCoinsEl = document.getElementById("resultCoins");
+const packsLink = document.getElementById("packsLink");
 const resultTextEl = document.getElementById("resultText");
 const claimChoicesEl = document.getElementById("claimChoices");
 const claimBtn = document.getElementById("claimBtn");
@@ -67,6 +70,10 @@ function otherColor(color) {
   return color === "red" ? "blue" : "red";
 }
 
+document.getElementById("coinRule").textContent =
+  `Every game earns coins: ${COIN_REWARDS.win} for a win, ${COIN_REWARDS.draw} for a draw, ` +
+  `${COIN_REWARDS.loss} for a loss. Spend them on card packs.`;
+
 // --- New player ---
 function showSetup() {
   showView("setup");
@@ -88,6 +95,7 @@ function showDeck(notice) {
   const collection = playableCollection(player);
   const { wins, losses, draws } = player.stats;
   deckRecordEl.textContent = `${wins}W – ${losses}L – ${draws}D · ${collection.length} cards`;
+  deckCoinsEl.textContent = player.coins.toLocaleString();
   deckNoticeEl.hidden = !notice;
   deckNoticeEl.textContent = notice || "";
 
@@ -329,11 +337,13 @@ function finishGame() {
     else stats.draws++;
     stats.currentStreak = 0;
   }
+  const coins = awardCoins(player, result);
 
   player.history.unshift({
     at,
     opponent: game.cpuName,
     result,
+    coins,
     score: [yours, theirs],
     wentFirst: game.color.you === "red",
     claimed: null,
@@ -362,6 +372,8 @@ function finishGame() {
   const describe = (name, s) => (s.inHand ? `${name} ${s.total} (${s.onBoard} on board + ${s.inHand} in hand)` : `${name} ${s.total}`);
   resultScoreEl.textContent = `${describe("You", you)} · ${describe(game.cpuName, cpu)}`;
   resultScoreEl.hidden = false;
+  resultCoinsEl.textContent = `🪙 +${coins} coins · ${player.coins.toLocaleString()} total`;
+  resultCoinsEl.hidden = false;
   showResult(result);
 }
 
@@ -375,6 +387,7 @@ function showResult(result) {
     resultTextEl.textContent = `Pick one of ${player.pendingClaim.opponent}'s cards you captured to add to your collection:`;
     renderClaimChoices();
     againBtn.hidden = true;
+    packsLink.hidden = true;
   } else {
     const messages = {
       win: `None of ${game.cpuName}'s cards ended in your color, so there's no card to claim this time.`,
@@ -384,8 +397,16 @@ function showResult(result) {
     resultTextEl.textContent = messages[result];
     claimChoicesEl.innerHTML = "";
     claimBtn.hidden = true;
-    againBtn.hidden = false;
+    showNextButtons();
   }
+}
+
+// Play Again, plus a way to the packs when the player can afford one.
+function showNextButtons() {
+  const pack = PACKS[0];
+  againBtn.hidden = false;
+  packsLink.hidden = player.coins < pack.price;
+  packsLink.textContent = `Open a Pack (🪙 ${pack.price})`;
 }
 
 function renderClaimChoices() {
@@ -428,7 +449,7 @@ claimBtn.addEventListener("click", () => {
   claimChoicesEl.appendChild(wrap);
   resultTextEl.textContent = `${card.name} was added to your collection!`;
   claimBtn.hidden = true;
-  againBtn.hidden = false;
+  showNextButtons();
 });
 
 againBtn.addEventListener("click", () => {
@@ -442,6 +463,7 @@ function showPendingClaim() {
   showView("play");
   boardEl.hidden = true;
   resultScoreEl.hidden = true;
+  resultCoinsEl.hidden = true;
   setStatus("You won your last game!", "");
   showResult("win");
 }

@@ -1596,3 +1596,206 @@ div.cc-hand-card {
   font-size: 0.9rem;
   color: var(--muted);
 }
+
+/* Coins and packs */
+.cc-profile-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
+.cc-result-coins {
+  margin: 0 0 0.6rem;
+  font-weight: 700;
+  color: var(--win);
+}
+
+.cc-wallet {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--cell);
+  border-radius: 999px;
+  padding: 0.35rem 0.95rem;
+  margin-bottom: 0.8rem;
+}
+
+.cc-pack-art {
+  position: relative;
+  width: min(170px, 48vw);
+  aspect-ratio: 3 / 4;
+  margin: 0.2rem auto 1rem;
+  border-radius: 0.9rem;
+  background: linear-gradient(155deg, #8b7dff 0%, #6c63ff 45%, #3b2f9e 100%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), inset 0 0 0 3px rgba(255, 255, 255, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  color: #fff;
+  overflow: hidden;
+}
+
+.cc-pack-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0 10px, transparent 10px 20px);
+}
+
+.cc-pack-brand {
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.cc-pack-icon {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.cc-pack-name {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.cc-pack-size {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.cc-pack-tear {
+  animation: cc-tear 0.7s ease-in forwards;
+}
+
+@keyframes cc-tear {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(-4deg); }
+  30% { transform: rotate(4deg); }
+  45% { transform: rotate(-3deg); }
+  60% { transform: rotate(2deg); opacity: 1; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+
+.cc-odds-table {
+  margin-top: 1rem;
+}
+
+.cc-odds-table .cc-rarity-name {
+  font-weight: 600;
+}
+
+.cc-pack-cards {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0.4rem 0 0.6rem;
+}
+
+.cc-pack-slot {
+  position: relative;
+  flex: 0 0 min(30%, 130px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  animation: cc-deal 0.35s ease-out both;
+}
+
+.cc-pack-slot:disabled {
+  cursor: default;
+}
+
+@keyframes cc-deal {
+  from { transform: translateY(30px) scale(0.8); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.cc-card-back {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12%;
+  border: 3px solid #8b7dff;
+  background: repeating-linear-gradient(45deg, #4a3fb8 0 8px, #3b2f9e 8px 16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.85);
+  transition: transform 0.15s ease;
+}
+
+.cc-pack-slot:not(:disabled):hover .cc-card-back {
+  transform: translateY(-4px);
+}
+
+.cc-card.cc-glow {
+  box-shadow: 0 0 0 2px var(--rarity-color), 0 0 18px var(--rarity-color);
+}
+
+.cc-new-badge {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.45rem;
+  background: var(--win);
+  color: #1e1f29;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+}
+
+.cc-pack-slot .cc-caption {
+  font-size: 0.8rem;
+}
+
+/* Collection groups: name, found / total, and a progress meter (the track
+   is a darker step of the accent, the fill the accent itself). */
+.cc-group-by {
+  margin: 0.2rem 0 0.4rem;
+}
+
+.cc-group-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0.3rem 0.5rem;
+  margin: 1rem 0 0.6rem;
+}
+
+.cc-group-head .cc-rarity-heading {
+  margin: 0;
+}
+
+.cc-group-count {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-meter {
+  grid-column: 1 / -1;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(108, 99, 255, 0.22);
+  overflow: hidden;
+}
+
+.cc-meter span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
