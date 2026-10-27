@@ -1,7 +1,8 @@
 // Card Builder (admin): add cards to the pool, edit existing ones, and set the
 // chance each rarity has of appearing when a card is drawn at random. Cards
-// and chances are saved in this browser (see savePool in cards-data.js), with
-// export/import to move them between devices.
+// and chances are saved in this browser, or signed in, in the online pool
+// that every player uses, which only admins may change (see savePool in
+// cards-data.js). Export/import moves them between devices.
 const EMOJI_PICKS = [
   "🐉", "🦁", "🐯", "🐺", "🦊", "🐻", "🐼", "🐸", "🐢", "🦅", "🦉", "🐍",
   "🦈", "🐙", "🦄", "🐝", "🦋", "🐘", "🦖", "👻", "🤖", "🧙", "⚡", "🔥",
@@ -58,15 +59,30 @@ function setStatus(text) {
   statusEl.textContent = text;
 }
 
-// How many copies of each card all players on this device own.
+const online = CardStore.mode === "online";
+let wasReadOnly = false; // the forms are locked (see applyAccess)
+
+// How many copies of each card the players on this device own (signed in,
+// only your own online player: other players' collections are private).
 function ownedCounts() {
   const counts = {};
-  Object.values(loadCardSave().players).forEach((player) => {
+  const players = online ? [CardStore.profile()].filter(Boolean) : Object.values(loadCardSave().players);
+  players.forEach((player) => {
     player.collection.forEach((owned) => {
       counts[owned.cardId] = (counts[owned.cardId] || 0) + 1;
     });
   });
   return counts;
+}
+
+// Saves the pool and reports how it went (online saves take a moment).
+function save(cards, chances, packs, doneText) {
+  if (!CardStore.canEditPool()) return;
+  if (online) setStatus("Saving…");
+  savePool(cards, chances, packs).then(
+    () => setStatus(doneText),
+    (err) => setStatus(`Not saved: ${err.message || "please try again."}`)
+  );
 }
 
 // --- Odds tables (rarity chances and pack odds) ---
@@ -153,9 +169,8 @@ chanceForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const chances = chanceEditor.read();
   if (!isValidChances(chances)) return;
-  savePool(CARD_POOL, chances);
+  save(CARD_POOL, chances, PACKS, "Rarity chances saved.");
   chanceEditor.show(RARITY_CHANCES);
-  setStatus("Rarity chances saved.");
 });
 
 // --- Pack settings ---
@@ -183,11 +198,14 @@ function updatePackForm() {
   packErrorEl.textContent = problem;
   savePackBtn.disabled = Boolean(problem) || !isValidPack(pack);
   if (Number.isInteger(pack.price) && pack.price > 0) {
-    const fewest = Math.ceil(pack.price / COIN_REWARDS.win);
-    const most = Math.ceil(pack.price / COIN_REWARDS.loss);
+    const games = (r) => {
+      const fewest = Math.ceil(pack.price / r.win);
+      const most = Math.ceil(pack.price / r.loss);
+      return fewest === most ? `${fewest}` : `${fewest}–${most}`;
+    };
     packSummaryEl.textContent =
-      `Games pay ${COIN_REWARDS.win} coins for a win and ${COIN_REWARDS.loss} for a loss, so one pack takes ` +
-      `${fewest === most ? fewest : `${fewest}–${most}`} games.`;
+      `Games against the computer pay ${rewardText("cpu")}, and against other players ${rewardText("live")}, ` +
+      `so one pack takes ${games(COIN_REWARDS.cpu)} computer games or ${games(COIN_REWARDS.live)} games against people.`;
   } else {
     packSummaryEl.textContent = "";
   }
@@ -213,9 +231,8 @@ packForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const pack = readPack();
   if (!isValidPack(pack)) return;
-  savePool(CARD_POOL, RARITY_CHANCES, [pack, ...PACKS.slice(1)]);
+  save(CARD_POOL, RARITY_CHANCES, [pack, ...PACKS.slice(1)], `Saved the ${pack.name}: ${pack.size} cards for ${pack.price} coins.`);
   showPack(PACKS[0]);
-  setStatus(`Saved the ${PACKS[0].name}: ${PACKS[0].size} cards for ${PACKS[0].price} coins.`);
 });
 
 // --- Building and editing cards ---
@@ -280,19 +297,23 @@ function loadForm(card) {
 
   if (card) {
     const owned = ownedCounts()[card.id] || 0;
-    const ownedText = owned ? ` Players own ${owned} ${owned === 1 ? "copy" : "copies"}; changes apply to them too.` : "";
+    const who = online ? "You own" : "Players own";
+    const ownedText = owned ? ` ${who} ${owned} ${owned === 1 ? "copy" : "copies"}; changes apply to them too.` : "";
     if (BUILT_IN_BY_ID[card.id]) {
       formNoteEl.textContent = `Built-in card, so it can be edited but not deleted.${ownedText}`;
     } else {
       deleteCardBtn.hidden = false;
       deleteCardBtn.disabled = owned > 0;
       formNoteEl.textContent = owned
-        ? `${ownedText.trim()} It can't be deleted while players own it.`
-        : "No player owns this card yet, so it can still be deleted.";
+        ? `${ownedText.trim()} It can't be deleted while ${online ? "you own" : "players own"} it.`
+        : online
+          ? "You don't own this card, so it can be deleted. Other players who own it keep it saved, but can't play it unless it's added back."
+          : "No player owns this card yet, so it can still be deleted.";
     }
   }
   renderPreview();
   renderPool();
+  if (online) applyAccess();
 }
 
 cardForm.addEventListener("input", (e) => {
@@ -346,8 +367,7 @@ cardForm.addEventListener("submit", (e) => {
     card = { no: nextCardNumber(), id: newId("card_"), ...fields };
     pool = [...CARD_POOL, card];
   }
-  savePool(pool, RARITY_CHANCES);
-  setStatus(editingId ? `Saved changes to #${card.no} ${card.name}.` : `Added #${card.no} ${card.name} to the pool.`);
+  save(pool, RARITY_CHANCES, PACKS, editingId ? `Saved changes to #${card.no} ${card.name}.` : `Added #${card.no} ${card.name} to the pool.`);
   loadForm(null);
   chanceEditor.update();
   packOddsEditor.update();
@@ -362,8 +382,7 @@ deleteCardBtn.addEventListener("click", () => {
   const card = getCard(editingId);
   if (!card || BUILT_IN_BY_ID[card.id] || ownedCounts()[card.id]) return;
   if (!confirm(`Delete #${card.no} ${card.name} from the pool? This can't be undone.`)) return;
-  savePool(CARD_POOL.filter((c) => c.id !== card.id), RARITY_CHANCES);
-  setStatus(`Deleted ${card.name}.`);
+  save(CARD_POOL.filter((c) => c.id !== card.id), RARITY_CHANCES, PACKS, `Deleted ${card.name}.`);
   loadForm(null);
   chanceEditor.update();
   packOddsEditor.update();
@@ -444,7 +463,9 @@ exportBtn.addEventListener("click", () => {
   setStatus(`Exported ${CARD_POOL.length} cards, the rarity chances and the pack settings.`);
 });
 
-importBtn.addEventListener("click", () => importFile.click());
+importBtn.addEventListener("click", () => {
+  if (CardStore.canEditPool()) importFile.click();
+});
 
 // Adds new cards and updates existing ones (matched by id); never removes any.
 // An existing card keeps its number; a new card whose number is taken gets
@@ -494,11 +515,9 @@ importFile.addEventListener("change", async () => {
     const fromFile = Array.isArray(data.packs) ? data.packs.find((p) => p && p.id === pack.id) : null;
     return isValidPack(fromFile) ? cleanPack(fromFile) : pack;
   });
-  savePool(Object.values(byId), chances, packs);
   const skipped = data.cards.length - valid.length;
-  setStatus(
-    `Imported ${added} new and ${updated} updated cards${skipped ? `; skipped ${skipped} invalid` : ""}.`
-  );
+  save(Object.values(byId), chances, packs,
+    `Imported ${added} new and ${updated} updated cards${skipped ? `; skipped ${skipped} invalid` : ""}.`);
   chanceEditor.show(RARITY_CHANCES);
   showPack(PACKS[0]);
   loadForm(null);
@@ -523,3 +542,53 @@ CARD_SETS.forEach((set) => setSelect.add(new Option(`${set.icon} ${set.name}`, s
 chanceEditor.show(RARITY_CHANCES);
 showPack(PACKS[0]);
 loadForm(null);
+
+// --- Online: the shared pool ---
+// Signed in, this page edits the online pool, so only admins may save; it
+// also follows changes to it (another admin, another device).
+const poolNoteEl = document.getElementById("poolNote");
+
+// Signed out (this browser's pool) or an admin: editable. Otherwise the
+// forms stay locked; once admin access is confirmed they're reset and open.
+function applyAccess() {
+  const readOnly = online && !CardStore.canEditPool();
+  if (readOnly || wasReadOnly) {
+    document.querySelectorAll("#chanceForm, #packForm, #cardForm").forEach((form) => {
+      [...form.elements].forEach((el) => {
+        el.disabled = readOnly;
+      });
+    });
+    importBtn.disabled = readOnly;
+  }
+  const opened = wasReadOnly && !readOnly;
+  wasReadOnly = readOnly;
+  if (opened) {
+    chanceEditor.show(RARITY_CHANCES);
+    showPack(PACKS[0]);
+    loadForm(null);
+  }
+}
+
+if (online) {
+  CardOnline.subscribe((s) => {
+    poolNoteEl.hidden = false;
+    if (s.admin) {
+      poolNoteEl.textContent = "You're signed in as an admin: changes here go to the online card pool and reach every player.";
+    } else if (s.adminChecked) {
+      poolNoteEl.textContent = "You're signed in, so this is the online card pool every player uses. Only Card Clash admins can change it.";
+    } else {
+      poolNoteEl.textContent = "This is the online card pool every player uses. Checking whether you can change it…";
+    }
+    applyAccess();
+  });
+  let poolSeen = false;
+  CardStore.onProfile(() => {
+    // The first call is the pool this page has had since it loaded.
+    if (poolSeen) {
+      if (!editingId) chanceEditor.show(RARITY_CHANCES);
+      renderPool();
+    }
+    poolSeen = true;
+    applyAccess();
+  });
+}

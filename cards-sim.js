@@ -41,7 +41,7 @@ const OUTCOMES = [
   { key: "loss", label: "Loss" },
 ];
 
-const player = getCurrentPlayer(loadCardSave());
+let player = null;
 let speedMs = 900;
 let gameCount = 1000;
 let watch = null; // the game being watched
@@ -82,10 +82,8 @@ function fixedHand() {
 }
 
 function setupOptions() {
-  Object.entries(PLAY_STYLES).forEach(([key, label]) => {
-    youStyleEl.add(new Option(label, key));
-    oppStyleEl.add(new Option(label, key));
-  });
+  const oldDecks = youCardsEl.querySelector("optgroup");
+  if (oldDecks) oldDecks.remove();
   const saved = savedHand();
   const owned = player ? playableCollection(player).length : 0;
   youCardsEl.querySelector('[value="saved"]').disabled = !saved;
@@ -148,12 +146,10 @@ function newGame(setup) {
   };
 }
 
-// Each side scores its cards on the board plus any still in its hand.
+// Each side's score, by the game's own scoring rule (CardRules.scoreBoard).
 function scores(game) {
-  return {
-    you: colorCount(game.board, game.color.you) + game.hands.you.length,
-    opp: colorCount(game.board, game.color.opp) + game.hands.opp.length,
-  };
+  const s = CardRules.scoreBoard(game.board, { a: game.hands.you, b: game.hands.opp }, { a: game.color.you, b: game.color.opp });
+  return { you: s.a, opp: s.b };
 }
 
 function playTurn(game) {
@@ -447,4 +443,18 @@ runBtn.addEventListener("click", () => {
   if (!running) runGames(gameCount);
 });
 
-setupOptions();
+Object.entries(PLAY_STYLES).forEach(([key, label]) => {
+  youStyleEl.add(new Option(label, key));
+  oppStyleEl.add(new Option(label, key));
+});
+// Signed in, the player's hands and decks arrive from the server; until
+// then only the random choices are offered.
+let profileSeen = false;
+CardStore.onProfile((next) => {
+  player = next;
+  if (!profileSeen) {
+    profileSeen = true;
+    setupOptions();
+  }
+});
+if (!profileSeen) setupOptions();

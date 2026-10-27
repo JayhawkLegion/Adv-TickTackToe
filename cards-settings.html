@@ -21,7 +21,7 @@
     <h1>Card Clash Settings</h1>
 
     <div class="setting-block">
-      <label>Online profile</label>
+      <label>Online play</label>
       <p id="cloudStatus" class="settings-hint"></p>
       <div id="cloudActions" class="cc-cloud-actions"></div>
     </div>
@@ -38,7 +38,7 @@
 
       <div class="setting-block">
         <label>Start over</label>
-        <p class="settings-hint">
+        <p id="resetHint" class="settings-hint">
           Deletes this player's collection, stats and game history. You'll pick a name again and get 5 new random starter cards.
         </p>
         <button id="resetPlayerBtn" class="reset-btn cc-danger">Reset Player</button>
@@ -48,8 +48,8 @@
     <div class="setting-block">
       <label>Admin</label>
       <p class="settings-hint">
-        Build new cards for the pool and set how often each rarity appears, or let the computer play your cards
-        in the simulator to test how the game plays.
+        Build new cards for the pool and set how often each rarity appears (signed in, only admins can change
+        the online pool), or let the computer play your cards in the simulator to test how the game plays.
       </p>
       <a href="cards-admin.html" class="reset-btn cc-btn-link cc-secondary cc-admin-link">Card Builder</a>
       <a href="cards-sim.html" class="reset-btn cc-btn-link cc-secondary cc-admin-link">Simulator</a>
@@ -61,9 +61,11 @@
   </main>
 
   <script src="cards-pool.js"></script>
+  <script src="cards-rules.js"></script>
   <script src="cards-data.js"></script>
   <script src="cards-cloud-config.js"></script>
-  <script src="cards-cloud.js"></script>
+  <script src="cards-online.js"></script>
+  <script src="cards-store.js"></script>
   <script src="cards-settings.js"></script>
 </body>
 </html>

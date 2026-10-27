@@ -26,7 +26,7 @@ const RESULT_LABELS = {
   draw: ["Drew", "cc-draw"],
 };
 
-const player = getCurrentPlayer(loadCardSave());
+let player = null;
 
 function renderStats() {
   const s = player.stats;
@@ -40,6 +40,7 @@ function renderStats() {
     ["Win streak", s.currentStreak],
     ["Best streak", s.bestStreak],
     ["Cards won", s.cardsClaimed],
+    ["Cards lost", s.cardsLost],
     ["Cards flipped", s.flipsMade],
     ["Coins", player.coins.toLocaleString()],
     ["Coins earned", s.coinsEarned.toLocaleString()],
@@ -198,6 +199,11 @@ function showCloseup(cardId) {
     const stats = player.cardStats[card.id] || { played: 0, win: 0, loss: 0, draw: 0 };
     statRow("Total (all 4 sides)", cardTotal(card));
     statRow("Copies owned", copies.length);
+    const struck = copies.map((owned) => owned.strikes || 0).filter(Boolean);
+    if (struck.length) {
+      statRow("Strikes", `${struck.sort((a, b) => b - a).map((n) => `${n} of ${STRIKES_TO_LOSE}`).join(", ")}` +
+        `${struck.length < copies.length ? `; ${copies.length - struck.length} with none` : ""}`);
+    }
     statRow("Games played", stats.played);
     statRow("Won · Lost · Drew", `${stats.win} · ${stats.loss} · ${stats.draw}`);
     statRow("Win rate", stats.played ? `${Math.round((stats.win / stats.played) * 100)}%` : "–");
@@ -250,10 +256,15 @@ function renderHistory() {
     const result = document.createElement("strong");
     const [label, className] = RESULT_LABELS[h.result];
     result.className = className;
-    result.textContent = `${label} ${h.score[0]}–${h.score[1]}`;
+    // A resigned or timed-out game has no final score.
+    result.textContent = h.reason && h.reason !== "board" ? label : `${label} ${h.score[0]}–${h.score[1]}`;
     const detail = document.createElement("span");
     const claimed = h.claimed ? ` · claimed ${getCard(h.claimed)?.name ?? h.claimed}` : "";
-    detail.textContent = ` vs ${h.opponent}${claimed}`;
+    const lost = h.lost ? ` · lost ${h.lost} card${h.lost === 1 ? "" : "s"}` : "";
+    // Who forfeited follows from the result: the loser.
+    const quitter = h.result === "win" ? "they" : "you";
+    const how = h.reason === "resign" ? ` (${quitter} resigned)` : h.reason === "timeout" ? ` (${quitter} ran out of time)` : "";
+    detail.textContent = ` vs ${h.mode === "live" ? "👤 " : ""}${h.opponent}${how}${claimed}${lost}`;
     const when = document.createElement("span");
     when.className = "cc-muted cc-when";
     when.textContent = new Date(h.at).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
@@ -262,15 +273,20 @@ function renderHistory() {
   });
 }
 
-if (!player) {
-  noPlayerEl.hidden = false;
-} else {
+if (CardStore.mode === "online") summaryEl.textContent = "Loading your profile…";
+CardStore.onProfile((next) => {
+  player = next;
+  noPlayerEl.hidden = Boolean(player);
+  playerInfoEl.hidden = !player;
+  if (!player) {
+    summaryEl.textContent = "";
+    return;
+  }
   titleEl.textContent = `${player.name}'s Collection`;
   const collection = playableCollection(player);
   const unique = new Set(collection.map((c) => c.cardId)).size;
   summaryEl.textContent = `${collection.length} cards · ${unique} of ${CARD_POOL.length} types found`;
-  playerInfoEl.hidden = false;
   renderStats();
   renderCollection();
   renderHistory();
-}
+});

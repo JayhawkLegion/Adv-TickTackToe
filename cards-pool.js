@@ -5,7 +5,7 @@
 // Rares: sides 1-5 using at least one 4 or 5, totalling 15 or less (474 cards).
 // Numbered weakest to strongest by side total within each rarity, with
 // animals picked to match. Cards built in the Card Builder, and edits to
-// these, are saved in the browser and merged on top by cards-data.js.
+// these, are merged on top by CardRules.buildPool (cards-rules.js).
 
 // Themed sets shown on the collection page; each card's `set` is one of these.
 const CARD_SETS = [
@@ -610,3 +610,6 @@ const LEGACY_CARD_IDS = {
   "bear": "common-3-3-3-1", "polar-bear": "common-2-3-3-3", "rhino": "common-3-2-3-3",
   "tiger": "common-3-3-2-3", "lion": "common-3-3-3-2", "elephant": "common-3-3-3-3",
 };
+
+// The server (Cloud Functions) loads this file as a Node module.
+if (typeof module !== "undefined" && module.exports) module.exports = { CARD_SETS, BUILT_IN_CARDS, LEGACY_CARD_IDS };

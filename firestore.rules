@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// Card Clash. The server (Cloud Functions, see functions/) writes profiles,
+// games and the queue; it isn't bound by these rules. Players can read their
+// own data, and change only their name and saved decks.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    match /players/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "decks"])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 20
+        && request.resource.data.decks is list
+        && request.resource.data.decks.size() <= 20;
+    }
+
+    // A game: both players see the board; each sees only their own hand.
+    match /matches/{matchId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.uids;
+
+      match /seats/{seat} {
+        allow read: if signedIn() && request.auth.uid == resource.data.uid;
+      }
+    }
+
+    match /queue/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+    }
+
+    // The card pool everyone plays with; the Card Builder saves it.
+    match /config/pool {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Add a document here (any content) with a player's uid as its id to
+    // make them an admin. Only the Firebase console can.
+    match /admins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+    }
+  }
+}

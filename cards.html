@@ -41,7 +41,7 @@
 
     <!-- New player -->
     <section id="setupView" class="cc-view" hidden>
-      <p class="cc-note">Enter your name to create your player. You'll start with 5 random cards.</p>
+      <p id="setupNote" class="cc-note">Enter your name to create your player. You'll start with 5 random cards.</p>
       <form id="setupForm" class="cc-form">
         <input id="nameInput" class="cc-input" type="text" maxlength="20" placeholder="Your name" autocomplete="off" required>
         <button type="submit" class="reset-btn">Start</button>
@@ -90,29 +90,44 @@
         <div id="savedDeckList" class="cc-deck-list"></div>
       </div>
 
-      <button id="playBtn" class="reset-btn cc-play-btn" disabled>Play</button>
+      <div class="cc-play-actions">
+        <button id="playBtn" class="reset-btn cc-play-btn" disabled>Play the Computer</button>
+        <button id="findBtn" class="reset-btn cc-play-btn cc-secondary" hidden disabled>Find a Player</button>
+      </div>
       <details class="cc-rules">
         <summary>How to play</summary>
         <ul>
           <li>A coin toss decides who goes first. The first player's cards are <span class="cc-red-text">Red</span>, the other player's are <span class="cc-blue-text">Blue</span>.</li>
           <li>Take turns placing a card from your hand on any empty square.</li>
           <li>When you place a card, any touching opponent card whose facing number is lower than your card's number on that side flips to your color. One card can flip several at once.</li>
-          <li>When all 9 squares are full, each player scores the cards in their color on the board plus any card still in their hand. The player who went second always has one card left, and it counts.</li>
-          <li>The higher score wins. A 5–5 tie is a draw.</li>
-          <li>Win, and you may add one of your opponent's cards that ended in your color to your collection. You never lose your own cards.</li>
+          <li id="scoreRule"></li>
+          <li>Win, and you may add a copy of one of your opponent's cards that ended in your color to your collection. Cards you don't have yet are marked NEW.</li>
+          <li id="strikeRule"></li>
+          <li id="clockRule"></li>
           <li id="coinRule"></li>
         </ul>
       </details>
     </section>
 
+    <!-- Looking for another player -->
+    <section id="queueView" class="cc-view cc-queue" hidden>
+      <div class="cc-queue-cards" aria-hidden="true"><span></span><span></span><span></span></div>
+      <p id="queueText" class="cc-note"></p>
+      <div class="cc-form-actions">
+        <button id="cpuInsteadBtn" class="reset-btn" hidden>Play the Computer Instead</button>
+        <button id="cancelQueueBtn" class="reset-btn cc-secondary">Cancel</button>
+      </div>
+    </section>
+
     <!-- Game in progress / finished -->
     <section id="playView" class="cc-view" hidden>
-      <div id="cpuSide" class="cc-side">
+      <div id="oppSide" class="cc-side">
         <div class="cc-bar">
-          <span id="cpuLabel" class="cc-who"></span>
-          <strong id="cpuScore" class="cc-score"></strong>
+          <span id="oppLabel" class="cc-who"></span>
+          <span id="oppTimer" class="cc-timer" hidden></span>
+          <strong id="oppScore" class="cc-score"></strong>
         </div>
-        <div id="cpuHand" class="cc-hand" aria-label="Opponent's hand"></div>
+        <div id="oppHand" class="cc-hand" aria-label="Opponent's hand"></div>
       </div>
 
       <div id="ccBoard" class="cc-board" role="grid" aria-label="Card board"></div>
@@ -121,13 +136,16 @@
         <div id="youHand" class="cc-hand" aria-label="Your hand"></div>
         <div class="cc-bar">
           <span id="youLabel" class="cc-who"></span>
+          <span id="youTimer" class="cc-timer" hidden></span>
           <strong id="youScore" class="cc-score"></strong>
         </div>
+        <button id="resignBtn" type="button" class="cc-link-btn cc-resign">Resign</button>
       </div>
 
       <div id="resultPanel" class="cc-result" hidden>
         <p id="resultScore" class="cc-result-score"></p>
         <p id="resultCoins" class="cc-result-coins" hidden></p>
+        <div id="resultStrikes" class="cc-result-strikes" hidden></div>
         <p id="resultText" class="cc-note"></p>
         <div id="claimChoices" class="cc-hand" role="group" aria-label="Cards you can claim"></div>
         <button id="claimBtn" class="reset-btn" hidden disabled>Add to Collection</button>
@@ -141,9 +159,11 @@
 
   <script src="menu.js"></script>
   <script src="cards-pool.js"></script>
+  <script src="cards-rules.js"></script>
   <script src="cards-data.js"></script>
   <script src="cards-cloud-config.js"></script>
-  <script src="cards-cloud.js"></script>
+  <script src="cards-online.js"></script>
+  <script src="cards-store.js"></script>
   <script src="cards.js"></script>
 </body>
 </html>

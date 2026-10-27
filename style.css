@@ -969,7 +969,7 @@ div.cc-hand-card {
   transform: translateY(-10%);
 }
 
-#cpuHand .cc-hand-card.selected {
+#oppHand .cc-hand-card.selected {
   transform: translateY(10%);
 }
 
@@ -2100,27 +2100,119 @@ div.cc-hand-card {
   background: var(--cell-hover);
 }
 
-.cc-choose .cc-choice {
+/* Play buttons: the computer, or (online) another player. */
+.cc-play-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+/* Find a Player: three cards shuffling while the queue looks. */
+.cc-queue {
+  padding: 1.2rem 0 0.4rem;
+}
+
+.cc-queue-cards {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.cc-queue-cards span {
+  width: 3.2rem;
+  aspect-ratio: 1 / 1;
+  border-radius: 12%;
+  background: linear-gradient(160deg, var(--accent), #3a3480);
+  animation: cc-queue-bob 1.2s ease-in-out infinite;
+}
+
+.cc-queue-cards span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.cc-queue-cards span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes cc-queue-bob {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(-0.5rem); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-queue-cards span {
+    animation: none;
+  }
+}
+
+/* Live games: the turn clock beside the player whose turn it is. */
+.cc-bar .cc-timer {
+  margin-left: auto;
+  margin-right: 0.6rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cc-bar .cc-timer.cc-low {
+  color: var(--win);
+}
+
+.cc-resign {
+  display: block;
+  margin: 0.2rem auto 0;
+  color: var(--muted);
+}
+
+/* Strikes on an owned copy: marks in the card's bottom-right corner, clear
+   of the bottom number. */
+.cc-strikes {
+  position: absolute;
+  right: 8%;
+  bottom: 6%;
+  display: flex;
+  gap: 2cqi;
+}
+
+.cc-strike {
+  width: 9cqi;
+  height: 9cqi;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.cc-strike.on {
+  background: var(--red-color);
+  border-color: #fff;
+}
+
+.cc-result-strikes .cc-note {
+  margin-bottom: 0.2rem;
+}
+
+.cc-struck {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  width: 100%;
-  margin-top: 0.6rem;
-  padding: 0.7rem 0.9rem;
-  border: 2px solid transparent;
-  border-radius: 0.7rem;
-  background: var(--cell);
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+  align-items: center;
+  gap: 0.3rem;
 }
 
-.cc-choose .cc-choice:hover {
-  border-color: var(--accent);
+.cc-struck .cc-caption {
+  font-size: 0.75rem;
 }
 
-.cc-choose .cc-choice span {
-  font-size: 0.85rem;
-  color: var(--muted);
+.cc-struck.cc-lost .cc-card {
+  filter: grayscale(1) brightness(0.6);
+}
+
+.cc-struck.cc-lost .cc-caption {
+  color: var(--red-color);
+}
+
+/* Claim choices can carry a NEW tag in the corner. */
+#claimChoices .cc-hand-card {
+  position: relative;
 }

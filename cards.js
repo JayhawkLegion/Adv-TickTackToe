@@ -1,26 +1,31 @@
-// Card Clash: you vs. a randomly generated computer player on a 3x3 board.
-// A coin toss picks who goes first; the first player is Red, the other Blue.
-// Placing a card flips every touching enemy card whose facing number is lower
-// than the placed card's number on that side. When all 9 squares are full,
-// each side scores its cards on the board plus its unplayed card, if any; the
-// higher score wins (5–5 is a draw), and a winning player may claim one of
-// the opponent's cards that ended up in their color.
-const CPU_NAMES = [
-  "Robo Rex", "Captain Byte", "Pixel Pete", "Glitch", "Turbo Tess",
-  "Sir Circuit", "Nova-9", "Chip", "Widget", "Bolt",
-];
+// Card Clash: a 3x3 board card game against the computer or, signed in,
+// another player. A coin toss picks who goes first; the first player is Red,
+// the other Blue. Placing a card flips every touching enemy card whose
+// facing number is lower than the placed card's number on that side. When
+// all 9 squares are full the player with more cards in their color wins, and
+// may claim a copy of one of the opponent's cards that ended in their color.
+//
+// The rules run in CardStore (on this device, or on the server when signed
+// in). This page sends the player's moves and shows a match's moves one by
+// one as they come in.
 const CPU_THINK_MS = 900;
 const CPU_SHOW_PICK_MS = 450;
 const FLIP_MS = 500;
+const QUEUE_PING_MS = 20000; // while waiting, check in (and look for a match) this often
+const QUEUE_FALLBACK_MS = 30000; // then offer a game against the computer
+const TIMEOUT_GRACE_MS = 2000; // the server's clock decides when a turn ran out
+const TIMEOUT_RETRY_MS = 3000;
 
 const statusEl = document.getElementById("status");
 const views = {
   setup: document.getElementById("setupView"),
   deck: document.getElementById("deckView"),
+  queue: document.getElementById("queueView"),
   play: document.getElementById("playView"),
 };
 
 const setupForm = document.getElementById("setupForm");
+const setupNoteEl = document.getElementById("setupNote");
 const nameInput = document.getElementById("nameInput");
 
 const deckNameEl = document.getElementById("deckName");
@@ -40,33 +45,45 @@ const cancelEditBtn = document.getElementById("cancelEditBtn");
 const noDecksEl = document.getElementById("noDecks");
 const savedDeckListEl = document.getElementById("savedDeckList");
 const playBtn = document.getElementById("playBtn");
+const findBtn = document.getElementById("findBtn");
 
-const cpuSideEl = document.getElementById("cpuSide");
+const queueTextEl = document.getElementById("queueText");
+const cpuInsteadBtn = document.getElementById("cpuInsteadBtn");
+const cancelQueueBtn = document.getElementById("cancelQueueBtn");
+
+const oppSideEl = document.getElementById("oppSide");
 const youSideEl = document.getElementById("youSide");
-const cpuLabelEl = document.getElementById("cpuLabel");
+const oppLabelEl = document.getElementById("oppLabel");
 const youLabelEl = document.getElementById("youLabel");
-const cpuScoreEl = document.getElementById("cpuScore");
+const oppScoreEl = document.getElementById("oppScore");
 const youScoreEl = document.getElementById("youScore");
-const cpuHandEl = document.getElementById("cpuHand");
+const oppTimerEl = document.getElementById("oppTimer");
+const youTimerEl = document.getElementById("youTimer");
+const oppHandEl = document.getElementById("oppHand");
 const youHandEl = document.getElementById("youHand");
 const boardEl = document.getElementById("ccBoard");
+const resignBtn = document.getElementById("resignBtn");
 
 const resultPanelEl = document.getElementById("resultPanel");
 const resultScoreEl = document.getElementById("resultScore");
 const resultCoinsEl = document.getElementById("resultCoins");
+const resultStrikesEl = document.getElementById("resultStrikes");
 const packsLink = document.getElementById("packsLink");
 const resultTextEl = document.getElementById("resultText");
 const claimChoicesEl = document.getElementById("claimChoices");
 const claimBtn = document.getElementById("claimBtn");
 const againBtn = document.getElementById("againBtn");
 
-const save = loadCardSave();
-let player = getCurrentPlayer(save);
+let profile = null;
+let profileKnown = false;
+let view = null;
+let busy = false; // starting a game, claiming… (buttons wait)
 let selectedUids = []; // cards picked for the next hand
 let pickTab = "cards"; // "cards" or "decks"
 let selectedDeckId = null; // saved deck chosen for the next hand
 let editingDeckId = null; // saved deck being changed on the Cards tab
-let game = null;
+let queue = null; // looking for a player: { hand, started, tick, ping }
+let game = null; // the match on screen (see openMatch)
 let claimPick = null;
 
 function setStatus(text, color) {
@@ -75,83 +92,116 @@ function setStatus(text, color) {
 }
 
 function showView(name) {
+  view = name;
   Object.entries(views).forEach(([key, el]) => {
     el.hidden = key !== name;
   });
 }
 
-function otherColor(color) {
-  return color === "red" ? "blue" : "red";
-}
+const online = CardStore.mode === "online";
 
+// --- How to play ---
+document.getElementById("scoreRule").textContent = SCORING === "board"
+  ? "When all 9 squares are full, the player with more cards in their color on the board wins. With 9 squares there's always a winner."
+  : "When all 9 squares are full, each player scores the cards in their color on the board plus any card still in their hand. The higher score wins; a tie is a draw.";
+document.getElementById("strikeRule").textContent =
+  `Against other players, lose and each of your cards that ended in the winner's color gets a strike. ` +
+  `A card's ${STRIKES_TO_LOSE === 3 ? "third" : `${STRIKES_TO_LOSE}th`} strike removes that copy from your collection. ` +
+  "Games against the computer never cost you cards.";
+document.getElementById("clockRule").textContent =
+  `Against other players each turn has ${TURN_SECONDS} seconds. When time runs out the computer plays for you, ` +
+  `and running out ${MAX_TIMEOUTS === 2 ? "twice" : `${MAX_TIMEOUTS} times`} in a row forfeits the game.`;
 document.getElementById("coinRule").textContent =
-  `Every game earns coins: ${COIN_REWARDS.win} for a win, ${COIN_REWARDS.draw} for a draw, ` +
-  `${COIN_REWARDS.loss} for a loss. Spend them on card packs.`;
+  `Every game earns coins: against the computer ${rewardText("cpu")}; against another player ${rewardText("live")}. ` +
+  "Spend them on card packs.";
 
-// --- Online profile ---
+// --- Online status ---
 const setupCloudEl = document.getElementById("setupCloud");
 const setupCloudTextEl = document.getElementById("setupCloudText");
 const setupCloudActionsEl = document.getElementById("setupCloudActions");
 const cloudBadgeEl = document.getElementById("cloudBadge");
 
-// A download from another device waits while a game is on screen.
-CardCloud.isBusy = () => Boolean(game);
-
-CardCloud.subscribe((s) => {
+CardOnline.subscribe((s) => {
   cloudBadgeEl.hidden = !s.enabled;
-  cloudBadgeEl.textContent = s.user ? `☁️ ${cloudStatusText(s)}` : "☁️ Sign in to save online";
+  cloudBadgeEl.textContent = online ? `☁️ ${onlineStatusText(s)}` : "☁️ Sign in to play online";
 
-  // New device: offer to load the profile from another device instead.
   setupCloudEl.hidden = !s.enabled;
   setupCloudActionsEl.innerHTML = "";
-  if (s.user) {
-    // "saved" with no player here means the account has no profile online yet.
-    setupCloudTextEl.textContent = s.status === "saved"
-      ? `Signed in as ${s.user.name || s.user.email}. No profile online yet, so pick a name to start one.`
-      : `Signed in as ${s.user.name || s.user.email}. ${cloudStatusText(s)}`;
-    if (!nameInput.value && s.user.name) nameInput.value = s.user.name.split(" ")[0];
+  if (online) {
+    const who = s.user ? s.user.name || s.user.email : "your Google account";
+    setupCloudTextEl.textContent =
+      `Signed in as ${who}. Your online player is separate from any player saved on this device, which you can still play when signed out.`;
+    setupCloudActionsEl.append(signOutButton());
+    if (!nameInput.value && s.user && s.user.name) nameInput.value = s.user.name.split(" ")[0];
   } else {
-    setupCloudTextEl.textContent = "Played on another device? Sign in to load your profile.";
-    const btn = googleSignInButton();
-    btn.disabled = s.status === "starting";
-    setupCloudActionsEl.append(btn);
+    setupCloudTextEl.textContent = "Want to play other people, on any device? Sign in to make an online player.";
+    setupCloudActionsEl.append(googleSignInButton());
+  }
+  if (view === "deck") updatePlayButtons();
+  // Online but the profile can't load: say why, and how to play anyway.
+  if (online && !profileKnown && (s.status === "offline" || s.status === "error")) {
+    setStatus(`${onlineStatusText(s)} Online play needs a connection; sign out in Settings to play on this device.`);
   }
 });
 
 // --- New player ---
 function showSetup() {
   showView("setup");
+  setupNoteEl.textContent = online
+    ? `Pick a name for your online player. You'll start with ${STARTER_SIZE} random cards and 🪙 ${STARTING_COINS}.`
+    : `Enter your name to create your player. You'll start with ${STARTER_SIZE} random cards.`;
   setStatus("Welcome! Who's playing?");
   nameInput.focus();
 }
 
+// The new profile arrives through CardStore.onProfile, which opens the deck.
 setupForm.addEventListener("submit", (e) => {
   e.preventDefault();
-  player = createPlayer(save, cleanName(nameInput.value));
-  saveCardSave(save);
-  showDeck(`Welcome, ${player.name}! Here are your 5 starter cards.`);
+  run(() => CardStore.createProfile(cleanName(nameInput.value)), "Creating your player…");
 });
+
+// Runs an action, keeping buttons off meanwhile and showing its error.
+async function run(action, pendingText) {
+  if (busy) return;
+  busy = true;
+  if (pendingText) setStatus(pendingText);
+  if (view === "deck") updatePlayButtons();
+  try {
+    await action();
+  } catch (err) {
+    console.warn("Card Clash:", err);
+    setStatus(err.message || "Something went wrong. Please try again.");
+  } finally {
+    busy = false;
+    if (view === "deck") updatePlayButtons();
+  }
+}
 
 // --- Choose a hand ---
 function showDeck(notice) {
   showView("deck");
-  deckNameEl.textContent = player.name;
-  const collection = playableCollection(player);
-  const { wins, losses, draws } = player.stats;
-  deckRecordEl.textContent = `${wins}W – ${losses}L – ${draws}D · ${collection.length} cards`;
-  deckCoinsEl.textContent = player.coins.toLocaleString();
+  renderProfileBar();
   deckNoticeEl.hidden = !notice;
   deckNoticeEl.textContent = notice || "";
 
+  const collection = playableCollection(profile);
   const owned = new Set(collection.map((c) => c.uid));
-  selectedUids = player.lastHand.filter((uid) => owned.has(uid)).slice(0, HAND_SIZE);
+  selectedUids = profile.lastHand.filter((uid) => owned.has(uid)).slice(0, HAND_SIZE);
   if (collection.length === HAND_SIZE) selectedUids = collection.map((c) => c.uid);
   editingDeckId = null;
   // Coming back after playing a saved deck reopens My Decks with it chosen.
-  const lastDeck = player.decks.find((d) => d.id === player.lastDeckId && deckCardIds(player, d));
+  const lastDeck = profile.decks.find((d) => d.id === profile.lastDeckId && deckCardIds(profile, d));
   selectedDeckId = lastDeck ? lastDeck.id : null;
   if (lastDeck) selectedUids = [...lastDeck.uids];
   showPickTab(lastDeck ? "decks" : "cards");
+}
+
+function renderProfileBar() {
+  deckNameEl.textContent = profile.name;
+  const { wins, losses, draws } = profile.stats;
+  const record = draws ? `${wins}W – ${losses}L – ${draws}D` : `${wins}W – ${losses}L`;
+  deckRecordEl.textContent = `${record} · ${playableCollection(profile).length} cards`;
+  deckCoinsEl.textContent = profile.coins.toLocaleString();
 }
 
 function showPickTab(tab) {
@@ -171,51 +221,77 @@ pickTabsEl.addEventListener("click", (e) => {
   if (btn) showPickTab(btn.dataset.tab);
 });
 
+function strikesOf(uid) {
+  const owned = profile && profile.collection.find((o) => o.uid === uid);
+  return owned ? owned.strikes || 0 : 0;
+}
+
 function renderDeck() {
-  savedDeckCountEl.textContent = player.decks.length;
+  savedDeckCountEl.textContent = profile.decks.length;
+  // Copies that were lost (third strike) drop out of the hand.
+  const playable = new Set(playableCollection(profile).map((o) => o.uid));
+  selectedUids = selectedUids.filter((uid) => playable.has(uid));
   if (pickTab === "decks") {
     renderSavedDecks();
     return;
   }
   deckGridEl.innerHTML = "";
-  sortedCollection(player).forEach((owned) => {
+  sortedCollection(profile).forEach((owned) => {
     const btn = document.createElement("button");
     btn.className = "cc-pick";
     btn.dataset.uid = owned.uid;
     const picked = selectedUids.includes(owned.uid);
     btn.classList.toggle("selected", picked);
     btn.setAttribute("aria-pressed", String(picked));
-    btn.appendChild(createCardEl(owned.cardId));
+    btn.appendChild(createCardEl(owned.cardId, "neutral", owned.strikes));
     deckGridEl.appendChild(btn);
   });
 
   const count = selectedUids.length;
-  playBtn.disabled = count !== HAND_SIZE;
-  const editing = player.decks.find((d) => d.id === editingDeckId);
+  const editing = profile.decks.find((d) => d.id === editingDeckId);
   editingNoteEl.hidden = !editing;
   if (editing) editingNoteEl.textContent = `Editing "${editing.name}": change its cards or name, then tap Save Deck.`;
   // Saving needs a full hand; a new deck also needs room in the deck list.
   saveDeckRowEl.hidden = count !== HAND_SIZE && !editing;
   saveDeckBtn.textContent = editing ? "Save Deck" : "Save as Deck";
-  saveDeckBtn.disabled = count !== HAND_SIZE || (!editing && player.decks.length >= MAX_DECKS);
+  saveDeckBtn.disabled = count !== HAND_SIZE || (!editing && profile.decks.length >= MAX_DECKS);
   cancelEditBtn.hidden = !editing;
-  if (!editing && document.activeElement !== deckNameInput) deckNameInput.placeholder = nextDeckName(player);
+  if (!editing && document.activeElement !== deckNameInput) deckNameInput.placeholder = nextDeckName(profile);
 
-  if (playableCollection(player).length < HAND_SIZE) {
+  if (playableCollection(profile).length < HAND_SIZE) {
     setStatus(`You need at least ${HAND_SIZE} cards to play.`);
-  } else if (!editing && count === HAND_SIZE && player.decks.length >= MAX_DECKS) {
+  } else if (!editing && count === HAND_SIZE && profile.decks.length >= MAX_DECKS) {
     setStatus(`Hand ready. You have the most decks you can save (${MAX_DECKS}).`);
   } else {
     setStatus(`Choose ${HAND_SIZE} cards for your hand: ${count} / ${HAND_SIZE}`);
   }
+  updatePlayButtons();
+}
+
+// The hand to play with: { uids, deckId }, or null if none is ready.
+function chosenHand() {
+  if (pickTab === "decks") {
+    const deck = profile.decks.find((d) => d.id === selectedDeckId && deckCardIds(profile, d));
+    return deck ? { uids: [...deck.uids], deckId: deck.id } : null;
+  }
+  return selectedUids.length === HAND_SIZE ? { uids: [...selectedUids], deckId: null } : null;
+}
+
+function updatePlayButtons() {
+  const ready = Boolean(chosenHand());
+  playBtn.disabled = !ready || busy;
+  findBtn.hidden = !CardOnline.enabled;
+  // Signed out, the button signs in instead.
+  findBtn.textContent = online ? "Find a Player" : "Sign In to Play People";
+  findBtn.disabled = busy || (online && !ready);
 }
 
 // --- Saved decks ---
 function renderSavedDecks() {
-  noDecksEl.hidden = player.decks.length > 0;
+  noDecksEl.hidden = profile.decks.length > 0;
   savedDeckListEl.innerHTML = "";
-  player.decks.forEach((deck) => {
-    const ids = deckCardIds(player, deck);
+  profile.decks.forEach((deck) => {
+    const ids = deckCardIds(profile, deck);
     const row = document.createElement("div");
     row.className = "cc-deck-row";
     row.classList.toggle("selected", deck.id === selectedDeckId);
@@ -244,7 +320,7 @@ function renderSavedDecks() {
     head.append(name, info);
     const cardsRow = document.createElement("span");
     cardsRow.className = "cc-deck-cards";
-    (ids || []).forEach((id) => cardsRow.appendChild(createCardEl(id)));
+    if (ids) deck.uids.forEach((uid, i) => cardsRow.appendChild(createCardEl(ids[i], "neutral", strikesOf(uid))));
     pick.append(head, cardsRow);
 
     const actions = document.createElement("span");
@@ -262,18 +338,18 @@ function renderSavedDecks() {
     savedDeckListEl.appendChild(row);
   });
 
-  const chosen = player.decks.find((d) => d.id === selectedDeckId);
-  playBtn.disabled = !chosen;
-  if (chosen) setStatus(`Deck "${chosen.name}" chosen. Tap Play when you're ready.`);
-  else if (player.decks.length) setStatus("Pick one of your saved decks.");
+  const chosen = profile.decks.find((d) => d.id === selectedDeckId);
+  if (chosen) setStatus(`Deck "${chosen.name}" chosen. Pick who to play when you're ready.`);
+  else if (profile.decks.length) setStatus("Pick one of your saved decks.");
   else setStatus("You haven't saved any decks yet.");
+  updatePlayButtons();
 }
 
 savedDeckListEl.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-action]");
   const row = e.target.closest(".cc-deck-row");
   if (!btn || !row) return;
-  const deck = player.decks.find((d) => d.id === row.dataset.id);
+  const deck = profile.decks.find((d) => d.id === row.dataset.id);
   if (!deck) return;
   if (btn.dataset.action === "pick") {
     selectedDeckId = deck.id;
@@ -283,32 +359,29 @@ savedDeckListEl.addEventListener("click", (e) => {
     // Open the deck's cards on the Cards tab to change them or the name.
     editingDeckId = deck.id;
     selectedDeckId = null;
-    const playable = new Set(playableCollection(player).map((o) => o.uid));
-    selectedUids = deck.uids.filter((uid) => playable.has(uid));
+    selectedUids = [...deck.uids];
     deckNameInput.value = deck.name;
     showPickTab("cards");
   } else if (btn.dataset.action === "delete") {
     if (!confirm(`Delete the deck "${deck.name}"? Its cards stay in your collection.`)) return;
-    deleteDeck(player, deck.id);
-    saveCardSave(save);
     if (selectedDeckId === deck.id) {
       selectedDeckId = null;
       selectedUids = [];
     }
-    renderDeck();
+    run(() => CardStore.deleteDeck(deck.id));
   }
 });
 
 saveDeckBtn.addEventListener("click", () => {
-  const deck = saveDeck(player, { id: editingDeckId, name: deckNameInput.value, uids: selectedUids });
-  if (!deck) return;
-  saveCardSave(save);
   const wasEditing = Boolean(editingDeckId);
-  editingDeckId = null;
-  selectedDeckId = deck.id;
-  deckNameInput.value = "";
-  renderDeck();
-  setStatus(wasEditing ? `Saved changes to "${deck.name}".` : `Saved "${deck.name}". It's in My Decks.`);
+  run(async () => {
+    const deck = await CardStore.saveDeck({ id: editingDeckId, name: deckNameInput.value, uids: selectedUids });
+    editingDeckId = null;
+    selectedDeckId = deck.id;
+    deckNameInput.value = "";
+    renderDeck();
+    setStatus(wasEditing ? `Saved changes to "${deck.name}".` : `Saved "${deck.name}". It's in My Decks.`);
+  });
 });
 
 cancelEditBtn.addEventListener("click", () => {
@@ -332,93 +405,349 @@ deckGridEl.addEventListener("click", (e) => {
 });
 
 playBtn.addEventListener("click", () => {
-  if (selectedUids.length !== HAND_SIZE) return;
-  player.lastHand = [...selectedUids];
-  player.lastDeckId = pickTab === "decks" ? selectedDeckId : null;
-  saveCardSave(save);
-  startGame();
+  const hand = chosenHand();
+  if (!hand) return;
+  run(async () => {
+    const id = await CardStore.startCpuMatch(hand.uids, hand.deckId);
+    openMatch(id, true);
+  }, "Starting a game…");
 });
 
-// --- Playing ---
-function startGame() {
-  const byUid = Object.fromEntries(player.collection.map((c) => [c.uid, c.cardId]));
-  const youFirst = Math.random() < 0.5;
-  game = {
-    board: Array(9).fill(null), // { cardId, color, startColor }
-    hands: { you: selectedUids.map((uid) => byUid[uid]), cpu: randomCards(HAND_SIZE) },
-    startHand: selectedUids.map((uid) => byUid[uid]), // for per-card stats
-    color: { you: youFirst ? "red" : "blue", cpu: youFirst ? "blue" : "red" },
-    turn: youFirst ? "you" : "cpu",
-    cpuName: randomItem(CPU_NAMES),
-    selected: null,
-    cpuPick: null,
-    flipsMade: 0,
-    over: false,
-  };
+findBtn.addEventListener("click", () => {
+  if (!online) {
+    CardOnline.signIn();
+    return;
+  }
+  const hand = chosenHand();
+  if (hand) startQueue(hand);
+});
 
+// --- Find a Player ---
+// Waits in the queue (checking in every QUEUE_PING_MS, which also looks for
+// someone to play) until the server pairs us: our profile's activeMatch is
+// then set, or joining returns the match right away.
+function startQueue(hand) {
+  showView("queue");
+  setStatus("Find a Player");
+  cpuInsteadBtn.hidden = true;
+  queue = { hand, started: Date.now() };
+  queue.tick = setInterval(updateQueueText, 1000);
+  queue.ping = setInterval(pingQueue, QUEUE_PING_MS);
+  updateQueueText();
+  pingQueue();
+}
+
+function updateQueueText() {
+  if (!queue) return;
+  const waited = Date.now() - queue.started;
+  const clock = formatClock(Math.floor(waited / 1000));
+  if (waited >= QUEUE_FALLBACK_MS) {
+    cpuInsteadBtn.hidden = false;
+    queueTextEl.textContent = `No one's free yet (${clock}). Keep waiting, or play the computer instead.`;
+  } else {
+    queueTextEl.textContent = `Looking for another player… ${clock}`;
+  }
+}
+
+async function pingQueue() {
+  const waiting = queue;
+  if (!waiting) return;
+  try {
+    const joined = await CardStore.joinQueue(waiting.hand.uids, waiting.hand.deckId);
+    if (queue === waiting && joined.status === "matched") enterMatch(joined.matchId);
+  } catch (err) {
+    if (queue !== waiting) return;
+    stopQueue();
+    showDeck();
+    setStatus(err.message || "Couldn't join the queue. Please try again.");
+  }
+}
+
+function stopQueue() {
+  if (!queue) return;
+  clearInterval(queue.tick);
+  clearInterval(queue.ping);
+  queue = null;
+}
+
+function enterMatch(id) {
+  stopQueue();
+  openMatch(id, true);
+}
+
+// Leaves the queue; resolves to a match id if we were paired meanwhile.
+async function leaveQueue() {
+  stopQueue();
+  const left = await CardStore.leaveQueue();
+  return left.status === "matched" ? left.matchId : null;
+}
+
+cancelQueueBtn.addEventListener("click", () => {
+  const hand = queue && queue.hand;
+  run(async () => {
+    const matchId = await leaveQueue();
+    if (matchId) openMatch(matchId, true);
+    else {
+      showDeck();
+      if (hand) setStatus("Stopped looking for a player.");
+    }
+  });
+});
+
+cpuInsteadBtn.addEventListener("click", () => {
+  const hand = queue && queue.hand;
+  if (!hand) return;
+  run(async () => {
+    const matchId = (await leaveQueue()) || (await CardStore.startCpuMatch(hand.uids, hand.deckId));
+    openMatch(matchId, true);
+  }, "Starting a game…");
+});
+
+// --- The match on screen ---
+// game: { id, fresh, latest (the newest view), seat, opp, colors, live,
+//   oppName, board (as shown so far), shown (moves shown), pending (our move,
+//   shown before the server confirmed it), animating, selected (hand index),
+//   oppPick, note (said before the next turn message), resultShown }
+function openMatch(id, fresh) {
+  closeMatch();
   showView("play");
   resultPanelEl.hidden = true;
   boardEl.hidden = false;
-  cpuSideEl.hidden = false;
+  oppSideEl.hidden = false;
   youSideEl.hidden = false;
-  cpuLabelEl.textContent = `🤖 ${game.cpuName}`;
-  youLabelEl.textContent = player.name;
-  cpuSideEl.dataset.color = game.color.cpu;
-  youSideEl.dataset.color = game.color.you;
-  renderBoard();
-  beginTurn(
-    youFirst
-      ? "Coin toss: you go first as Red! Pick a card, then a square."
-      : `Coin toss: ${game.cpuName} goes first as Red. You're Blue.`
-  );
+  resignBtn.hidden = true;
+  boardEl.innerHTML = "";
+  oppHandEl.innerHTML = "";
+  youHandEl.innerHTML = "";
+  oppLabelEl.textContent = "";
+  youLabelEl.textContent = "";
+  oppScoreEl.textContent = "";
+  youScoreEl.textContent = "";
+  setStatus("Loading the game…");
+  game = {
+    id, fresh, latest: null, board: Array(9).fill(null), shown: 0, pending: null, animating: false,
+    selected: null, oppPick: null, note: "", resultShown: false, timeoutAsked: null,
+  };
+  game.clock = setInterval(updateClocks, 250);
+  try {
+    game.unwatch = CardStore.watchMatch(id, onMatchView, (err) => matchFailed(id, err));
+  } catch (err) {
+    matchFailed(id, err);
+  }
 }
 
-function renderBoard(placed = null, flipped = []) {
-  boardEl.innerHTML = "";
-  game.board.forEach((slot, i) => {
-    const btn = document.createElement("button");
-    btn.className = "cc-slot";
-    btn.dataset.index = i;
-    btn.setAttribute("role", "gridcell");
-    btn.setAttribute("aria-label", `Row ${Math.floor(i / 3) + 1}, Column ${(i % 3) + 1}`);
-    if (slot) {
-      btn.disabled = true;
-      const flipping = flipped.includes(i);
-      // A flipping card shows its old color until the flip's midpoint.
-      const card = createCardEl(slot.cardId, flipping ? otherColor(slot.color) : slot.color);
-      if (i === placed) card.classList.add("cc-placed");
-      if (flipping) {
-        card.classList.add("cc-flipping");
-        setTimeout(() => card.classList.replace(otherColor(slot.color), slot.color), FLIP_MS / 2);
-      }
-      if (game.over && slot.startColor === game.color.cpu && slot.color === game.color.you) {
-        btn.classList.add("cc-claimable");
-      }
-      btn.appendChild(card);
-    }
-    boardEl.appendChild(btn);
+function closeMatch() {
+  if (!game) return;
+  if (game.unwatch) game.unwatch();
+  clearInterval(game.clock);
+  clearTimeout(game.wait);
+  game = null;
+}
+
+function matchFailed(id, err) {
+  if (!game || game.id !== id) return;
+  console.warn("Card Clash: couldn't load the game", err);
+  closeMatch();
+  showDeck();
+  setStatus("Couldn't load that game.");
+}
+
+function onMatchView(v) {
+  if (!game) return;
+  const first = !game.latest;
+  game.latest = v;
+  if (first) setUpMatch(v);
+  else pump();
+}
+
+function setUpMatch({ match, seat }) {
+  game.seat = seat;
+  game.opp = otherSeat(seat);
+  game.colors = match.colors;
+  game.live = match.mode === "live";
+  game.oppName = match.seats[game.opp].name;
+  oppLabelEl.textContent = `${game.live ? "👤" : "🤖"} ${game.oppName}`;
+  youLabelEl.textContent = match.seats[seat].name;
+  oppSideEl.dataset.color = game.colors[game.opp];
+  youSideEl.dataset.color = game.colors[seat];
+
+  if (!game.fresh) {
+    // Back to a game already under way: show where it stands.
+    match.moves.forEach((move) => applyMove(game.board, move));
+    game.shown = match.moves.length;
+    renderBoard();
+    pump();
+    return;
+  }
+  renderBoard();
+  const youFirst = match.first === seat;
+  game.note = youFirst
+    ? "Coin toss: you go first as Red!"
+    : `Coin toss: ${game.oppName} goes first as Red. You're Blue.`;
+  renderSides();
+  setStatus(game.note, game.colors[match.first]);
+  // Give the coin toss a moment before the first move shows.
+  game.animating = true;
+  game.wait = setTimeout(() => {
+    game.animating = false;
+    pump();
+  }, youFirst ? 0 : CPU_THINK_MS);
+}
+
+function applyMove(board, move) {
+  const color = game.colors[move.seat];
+  board[move.slot] = { cardId: move.cardId, color, seat: move.seat };
+  move.flips.forEach((i) => {
+    board[i].color = color;
   });
+}
+
+function rebuildBoard() {
+  game.board = Array(9).fill(null);
+  game.latest.match.moves.slice(0, game.shown).forEach((move) => applyMove(game.board, move));
+}
+
+// Shows the next move not on screen yet, one at a time; once caught up,
+// shows whose turn it is, or the result.
+function pump() {
+  if (!game || game.animating || !game.latest) return;
+  const { match } = game.latest;
+  if (game.shown < match.moves.length) {
+    const move = match.moves[game.shown];
+    if (game.pending && move.seat === game.seat) {
+      // Our own move, already on the board since we played it.
+      const same = move.slot === game.pending.slot && move.cardId === game.pending.cardId;
+      game.pending = null;
+      game.shown++;
+      if (!same) {
+        rebuildBoard();
+        renderBoard();
+      }
+      pump();
+      return;
+    }
+    showMove(move);
+    return;
+  }
+  renderTurn();
+  if (match.status === "finished") showFinished();
+}
+
+function showMove(move) {
+  const theirs = move.seat !== game.seat;
+  game.animating = true;
+  const place = () => {
+    applyMove(game.board, move);
+    game.shown++;
+    game.oppPick = null;
+    renderBoard(move.slot, move.flips);
+    renderSides();
+    game.note = moveNote(move);
+    game.wait = setTimeout(() => {
+      game.animating = false;
+      pump();
+    }, FLIP_MS);
+  };
+  if (theirs && !game.live && !move.auto) {
+    // The computer "thinks", then lifts the card it's about to play.
+    const lead = game.note ? `${game.note} ` : "";
+    game.note = "";
+    setStatus(`${lead}${game.oppName} is thinking…`, game.colors[game.opp]);
+    renderSides();
+    game.wait = setTimeout(() => {
+      game.oppPick = oppHandCount() - 1;
+      renderHand("opp");
+      game.wait = setTimeout(place, CPU_SHOW_PICK_MS);
+    }, CPU_THINK_MS);
+  } else {
+    place();
+  }
+}
+
+function moveNote(move) {
+  const n = move.flips.length;
+  const cards = `${n} card${n === 1 ? "" : "s"}`;
+  if (move.seat === game.seat) {
+    const auto = move.auto ? "Time ran out, so the computer played for you. " : "";
+    return n ? `${auto}You flipped ${cards}!` : auto.trim();
+  }
+  const auto = move.auto ? `${game.oppName} ran out of time, so the computer played for them. ` : "";
+  return n ? `${auto}${game.oppName} flipped ${n} of your cards.` : auto.trim();
+}
+
+function isMyTurn() {
+  const { match } = game.latest;
+  return match.status === "active" && match.turn === game.seat && !game.pending && !game.animating &&
+    game.shown === match.moves.length;
+}
+
+// Our cards in hand, less any already on the board (the hand and the board
+// can arrive separately) and one we've played that isn't confirmed yet.
+function myHand() {
+  const played = new Set(game.latest.match.board.filter((s) => s && s.seat === game.seat).map((s) => s.copyUid));
+  return game.latest.hand.filter((c) => !played.has(c.uid) && (!game.pending || c.uid !== game.pending.uid));
+}
+
+function oppHandCount() {
+  return HAND_SIZE - game.latest.match.moves.slice(0, game.shown).filter((m) => m.seat === game.opp).length;
+}
+
+function renderTurn() {
+  const { match } = game.latest;
+  const myTurn = isMyTurn();
+  if (myTurn && myHand().length === 1) game.selected = 0;
+  renderSides();
+  boardEl.classList.toggle("placing", myTurn);
+  resignBtn.hidden = match.status !== "active";
+  if (match.status !== "active") return;
+  const lead = game.note ? `${game.note} ` : "";
+  // While our move is on its way the note stays for the opponent's reply.
+  if (!game.pending) game.note = "";
+  if (myTurn) {
+    setStatus(`${lead}${game.selected === null ? "Your turn: pick a card, then a square." : "Now tap an empty square."}`, game.colors[game.seat]);
+  } else {
+    const waiting = game.live ? `Waiting for ${game.oppName}…` : `${game.oppName} is thinking…`;
+    setStatus(`${lead}${waiting}`, game.colors[game.opp]);
+  }
+}
+
+function renderSides() {
+  renderHand("you");
+  renderHand("opp");
+  youScoreEl.textContent = colorCount(game.board, game.colors[game.seat]);
+  oppScoreEl.textContent = colorCount(game.board, game.colors[game.opp]);
 }
 
 function renderHand(side) {
-  const handEl = side === "you" ? youHandEl : cpuHandEl;
-  const yourTurn = side === "you" && game.turn === "you" && !game.over;
+  const mine = side === "you";
+  const handEl = mine ? youHandEl : oppHandEl;
+  const color = game.colors[mine ? game.seat : game.opp];
+  const { match } = game.latest;
   handEl.innerHTML = "";
-  handEl.classList.toggle("waiting", game.turn !== side);
-  game.hands[side].forEach((cardId, i) => {
-    const wrap = document.createElement(side === "you" ? "button" : "div");
+  handEl.classList.toggle("waiting", mine ? !isMyTurn() : match.turn !== game.opp);
+  if (mine) {
+    const myTurn = isMyTurn();
+    myHand().forEach((c, i) => {
+      const btn = document.createElement("button");
+      btn.className = "cc-hand-card";
+      btn.dataset.index = i;
+      const picked = game.selected === i;
+      btn.classList.toggle("selected", picked);
+      btn.disabled = !myTurn;
+      btn.setAttribute("aria-pressed", String(picked));
+      btn.appendChild(createCardEl(c.cardId, color, strikesOf(c.uid)));
+      handEl.appendChild(btn);
+    });
+    return;
+  }
+  // The opponent's cards stay hidden until they're played.
+  for (let i = 0; i < oppHandCount(); i++) {
+    const wrap = document.createElement("div");
     wrap.className = "cc-hand-card";
-    const picked = side === "you" ? game.selected === i : game.cpuPick === i;
-    wrap.classList.toggle("selected", picked);
-    if (side === "you") {
-      wrap.dataset.index = i;
-      wrap.disabled = !yourTurn;
-      wrap.setAttribute("aria-pressed", String(picked));
-    }
-    // The opponent's cards stay hidden until they're played.
-    wrap.appendChild(side === "you" ? createCardEl(cardId, game.color[side]) : hiddenCardEl(game.color[side]));
+    wrap.classList.toggle("selected", game.oppPick === i);
+    wrap.appendChild(hiddenCardEl(color));
     handEl.appendChild(wrap);
-  });
+  }
 }
 
 function hiddenCardEl(color) {
@@ -429,258 +758,343 @@ function hiddenCardEl(color) {
   return el;
 }
 
-// Each side scores its cards on the board plus the cards still in its hand,
-// so the scores start at 5–5 and always add up to 10. At the end the player
-// who went second has one unplayed card, which still counts.
-function scoreFor(side) {
-  const onBoard = colorCount(game.board, game.color[side]);
-  const inHand = game.hands[side].length;
-  return { onBoard, inHand, total: onBoard + inHand };
-}
-
-function renderScores() {
-  youScoreEl.textContent = scoreFor("you").total;
-  cpuScoreEl.textContent = scoreFor("cpu").total;
-}
-
-function beginTurn(message) {
-  if (game.turn === "you" && game.hands.you.length === 1) game.selected = 0;
-  game.cpuPick = null;
-  renderHand("you");
-  renderHand("cpu");
-  renderScores();
-  boardEl.classList.toggle("placing", game.turn === "you");
-
-  if (game.turn === "you") {
-    setStatus(message || "Your turn: pick a card, then a square.", game.color.you);
-  } else {
-    setStatus(message || `${game.cpuName} is thinking…`, game.color.cpu);
-    setTimeout(cpuTurn, message ? CPU_THINK_MS * 1.5 : CPU_THINK_MS);
-  }
-}
-
-function playCard(side, handIndex, slotIndex) {
-  const color = game.color[side];
-  const [cardId] = game.hands[side].splice(handIndex, 1);
-  const flips = placeCard(game.board, slotIndex, cardId, color);
-  if (side === "you") game.flipsMade += flips.length;
-  game.selected = null;
-
-  renderBoard(slotIndex, flips);
-
-  if (game.board.every(Boolean)) {
-    game.turn = null;
-    renderHand("you");
-    renderHand("cpu");
-    renderScores();
-    boardEl.classList.remove("placing");
-    setTimeout(finishGame, FLIP_MS + 300);
-    return;
-  }
-
-  game.turn = side === "you" ? "cpu" : "you";
-  let message = null;
-  if (flips.length && side === "you") {
-    message = `You flipped ${flips.length} card${flips.length > 1 ? "s" : ""}! ${game.cpuName} is thinking…`;
-  } else if (flips.length) {
-    message = `${game.cpuName} flipped ${flips.length} of your cards. Your turn.`;
-  }
-  beginTurn(message);
-}
-
-// The computer plays the "smart" style (see chooseMove in cards-data.js).
-function cpuTurn() {
-  if (!game || game.over || game.turn !== "cpu") return;
-  const move = chooseMove(game.board, game.hands.cpu, game.color.cpu);
-  game.cpuPick = move.handIndex;
-  renderHand("cpu");
-  setTimeout(() => playCard("cpu", move.handIndex, move.slot), CPU_SHOW_PICK_MS);
+function renderBoard(placed = null, flipped = []) {
+  const { match } = game.latest;
+  const won = match.status === "finished" && match.result.winner === game.seat;
+  boardEl.innerHTML = "";
+  game.board.forEach((slot, i) => {
+    const btn = document.createElement("button");
+    btn.className = "cc-slot";
+    btn.dataset.index = i;
+    btn.setAttribute("role", "gridcell");
+    btn.setAttribute("aria-label", `Row ${Math.floor(i / 3) + 1}, Column ${(i % 3) + 1}`);
+    if (slot) {
+      btn.disabled = true;
+      const flipping = flipped.includes(i);
+      const other = slot.color === "red" ? "blue" : "red";
+      // A flipping card shows its old color until the flip's midpoint.
+      const card = createCardEl(slot.cardId, flipping ? other : slot.color);
+      if (i === placed) card.classList.add("cc-placed");
+      if (flipping) {
+        card.classList.add("cc-flipping");
+        setTimeout(() => card.classList.replace(other, slot.color), FLIP_MS / 2);
+      }
+      if (won && slot.seat === game.opp && slot.color === game.colors[game.seat]) btn.classList.add("cc-claimable");
+      btn.appendChild(card);
+    }
+    boardEl.appendChild(btn);
+  });
 }
 
 youHandEl.addEventListener("click", (e) => {
   const btn = e.target.closest(".cc-hand-card");
-  if (!btn || btn.disabled || !game || game.turn !== "you") return;
+  if (!btn || btn.disabled || !game || !isMyTurn()) return;
   game.selected = Number(btn.dataset.index);
   renderHand("you");
-  setStatus("Now tap an empty square.", game.color.you);
+  setStatus("Now tap an empty square.", game.colors[game.seat]);
 });
 
 boardEl.addEventListener("click", (e) => {
   const btn = e.target.closest(".cc-slot");
-  if (!btn || btn.disabled || !game || game.over || game.turn !== "you") return;
-  if (game.selected === null) {
-    setStatus("Pick a card from your hand first.", game.color.you);
+  if (!btn || btn.disabled || !game || !isMyTurn()) return;
+  const card = myHand()[game.selected];
+  if (!card) {
+    setStatus("Pick a card from your hand first.", game.colors[game.seat]);
     return;
   }
-  playCard("you", game.selected, Number(btn.dataset.index));
+  playMine(card, Number(btn.dataset.index));
 });
 
-// --- End of game ---
-function finishGame() {
-  game.over = true;
-  const you = scoreFor("you");
-  const cpu = scoreFor("cpu");
-  const yours = you.total;
-  const theirs = cpu.total;
-  let result = "draw";
-  if (yours > theirs) result = "win";
-  else if (yours < theirs) result = "loss";
-  const won = result === "win";
-  const at = Date.now();
-
-  const stats = player.stats;
-  stats.played++;
-  stats.flipsMade += game.flipsMade;
-  if (won) {
-    stats.wins++;
-    stats.currentStreak++;
-    stats.bestStreak = Math.max(stats.bestStreak, stats.currentStreak);
-  } else {
-    if (result === "loss") stats.losses++;
-    else stats.draws++;
-    stats.currentStreak = 0;
+// Shows our move straight away, then sends it; the server's version of the
+// match replaces it when it arrives (or it's taken back if refused).
+async function playMine(card, slot) {
+  const id = game.id;
+  const color = game.colors[game.seat];
+  const flips = findFlips(game.board, slot, card.cardId, color);
+  game.pending = { slot, cardId: card.cardId, uid: card.uid };
+  game.selected = null;
+  applyMove(game.board, { seat: game.seat, slot, cardId: card.cardId, flips });
+  renderBoard(slot, flips);
+  game.note = moveNote({ seat: game.seat, flips });
+  renderTurn();
+  try {
+    await CardStore.playMove(id, card.uid, slot);
+  } catch (err) {
+    if (!game || game.id !== id || !game.pending) return;
+    game.pending = null;
+    game.note = "";
+    rebuildBoard();
+    renderBoard();
+    renderTurn();
+    setStatus(err.message || "That move didn't go through. Please try again.", color);
   }
-  const coins = awardCoins(player, result);
-  recordCardUse(player, game.startHand, result);
-
-  player.history.unshift({
-    at,
-    opponent: game.cpuName,
-    result,
-    coins,
-    score: [yours, theirs],
-    wentFirst: game.color.you === "red",
-    claimed: null,
-  });
-  player.history = player.history.slice(0, HISTORY_LIMIT);
-
-  // Opponent cards that finished in your color are the ones you can claim.
-  const options = won
-    ? [...new Set(
-        game.board
-          .filter((slot) => slot.startColor === game.color.cpu && slot.color === game.color.you)
-          .map((slot) => slot.cardId)
-      )]
-    : [];
-  player.pendingClaim = options.length ? { at, opponent: game.cpuName, options } : null;
-  saveCardSave(save);
-
-  renderBoard();
-  if (result === "win") {
-    setStatus(`You win ${yours}–${theirs}! 🎉`, game.color.you);
-  } else if (result === "loss") {
-    setStatus(`${game.cpuName} wins ${theirs}–${yours}.`, game.color.cpu);
-  } else {
-    setStatus(`It's a draw, ${yours}–${theirs}.`);
-  }
-  const describe = (name, s) => (s.inHand ? `${name} ${s.total} (${s.onBoard} on board + ${s.inHand} in hand)` : `${name} ${s.total}`);
-  resultScoreEl.textContent = `${describe("You", you)} · ${describe(game.cpuName, cpu)}`;
-  resultScoreEl.hidden = false;
-  resultCoinsEl.textContent = `🪙 +${coins} coins · ${player.coins.toLocaleString()} total`;
-  resultCoinsEl.hidden = false;
-  showResult(result);
 }
 
-function showResult(result) {
-  cpuSideEl.hidden = true;
+resignBtn.addEventListener("click", () => {
+  if (!game || !game.latest || game.latest.match.status !== "active") return;
+  const strikes = game.live ? " Your cards in their color will get strikes." : "";
+  if (!confirm(`Resign this game? It counts as a loss.${strikes}`)) return;
+  const id = game.id;
+  CardStore.resign(id).catch((err) => {
+    if (game && game.id === id) setStatus(err.message || "Couldn't resign. Please try again.");
+  });
+});
+
+// Live games: each player's turn clock. When one runs out (by the server's
+// clock, give or take), either player's page asks the server to act on it.
+function updateClocks() {
+  if (!game || !game.latest) return;
+  const { match } = game.latest;
+  const ticking = match.mode === "live" && match.status === "active" && Boolean(match.turnDeadline);
+  youTimerEl.hidden = !ticking || match.turn !== game.seat;
+  oppTimerEl.hidden = !ticking || match.turn !== game.opp;
+  if (!ticking) return;
+  const left = Math.max(0, Math.ceil((match.turnDeadline - Date.now()) / 1000));
+  const timerEl = match.turn === game.seat ? youTimerEl : oppTimerEl;
+  timerEl.textContent = `⏱ ${formatClock(left)}`;
+  timerEl.classList.toggle("cc-low", left <= 10);
+  if (Date.now() < match.turnDeadline + TIMEOUT_GRACE_MS || game.timeoutAsked === match.turnDeadline) return;
+  const id = game.id;
+  const deadline = match.turnDeadline;
+  game.timeoutAsked = deadline;
+  CardStore.claimTimeout(id)
+    .then((r) => (r && r.changed ? null : Promise.reject(new Error("not yet"))))
+    .catch(() => {
+      setTimeout(() => {
+        if (game && game.id === id && game.timeoutAsked === deadline) game.timeoutAsked = null;
+      }, TIMEOUT_RETRY_MS);
+    });
+}
+
+// --- End of game ---
+function showFinished() {
+  const { match, settlement } = game.latest;
+  boardEl.classList.remove("placing");
+  resignBtn.hidden = true;
+  youTimerEl.hidden = true;
+  oppTimerEl.hidden = true;
+  if (!settlement) {
+    setStatus("Saving the result…");
+    return;
+  }
+  if (game.resultShown) return;
+  game.resultShown = true;
+  renderBoard();
+
+  const [mine, theirs] = settlement.scores;
+  const opp = game.oppName;
+  const { reason } = match.result;
+  const color = settlement.result === "win" ? game.colors[game.seat] : settlement.result === "loss" ? game.colors[game.opp] : "";
+  let text;
+  if (settlement.result === "win") {
+    if (reason === "resign") text = `${opp} resigned. You win! 🎉`;
+    else if (reason === "timeout") text = `${opp} ran out of time. You win! 🎉`;
+    else text = `You win ${mine}–${theirs}! 🎉`;
+  } else if (settlement.result === "loss") {
+    if (reason === "resign") text = `You resigned. ${opp} wins.`;
+    else if (reason === "timeout") text = `You ran out of time, so ${opp} wins.`;
+    else text = `${opp} wins ${theirs}–${mine}.`;
+  } else {
+    text = `It's a draw, ${mine}–${theirs}.`;
+  }
+  setStatus(text, color);
+  resultScoreEl.textContent = `You ${mine} · ${opp} ${theirs}`;
+  resultScoreEl.hidden = false;
+  game.coins = settlement.coins;
+  renderStrikes(settlement.strikes);
+  showResult(settlement.result, settlement.strikes, match.id);
+  renderResultCoins();
+}
+
+// The coins the game paid, and the new total once the profile has it.
+function renderResultCoins() {
+  if (!game || game.coins === undefined) return;
+  if (game.awaitingProfile) {
+    resultCoinsEl.hidden = true;
+    return;
+  }
+  resultCoinsEl.textContent = `🪙 +${game.coins} coin${game.coins === 1 ? "" : "s"} · ${profile.coins.toLocaleString()} total`;
+  resultCoinsEl.hidden = false;
+}
+
+// Our cards that took a strike, with how many they have now.
+function renderStrikes(strikes) {
+  resultStrikesEl.innerHTML = "";
+  resultStrikesEl.hidden = !strikes.length;
+  if (!strikes.length) return;
+  const head = document.createElement("p");
+  head.className = "cc-note";
+  head.textContent = `Strikes for your cards that ended in ${game.oppName}'s color:`;
+  const row = document.createElement("div");
+  row.className = "cc-hand";
+  strikes.forEach((s) => {
+    const item = document.createElement("div");
+    item.className = "cc-hand-card cc-struck";
+    item.classList.toggle("cc-lost", s.removed);
+    item.appendChild(createCardEl(s.cardId, "neutral", Math.min(s.strikes, STRIKES_TO_LOSE)));
+    const caption = document.createElement("span");
+    caption.className = "cc-caption";
+    caption.textContent = s.removed ? "Lost" : `Strike ${s.strikes} of ${STRIKES_TO_LOSE}`;
+    item.appendChild(caption);
+    row.appendChild(item);
+  });
+  resultStrikesEl.append(head, row);
+}
+
+// `matchId`: the game just shown. Online, the profile (coins, the card to
+// claim) can arrive a moment after the game's result; until it has this
+// game in its history, the reward waits.
+function showResult(result, strikes = [], matchId = null) {
+  oppSideEl.hidden = true;
   youSideEl.hidden = true;
   resultPanelEl.hidden = false;
   claimPick = null;
 
-  if (player.pendingClaim) {
-    resultTextEl.textContent = `Pick one of ${player.pendingClaim.opponent}'s cards you captured to add to your collection:`;
+  const caughtUp = !matchId || (profile.history[0] && profile.history[0].matchId === matchId);
+  if (game) game.awaitingProfile = caughtUp ? null : { result, strikes, matchId };
+  if (!caughtUp) {
+    resultTextEl.textContent = "Saving your result…";
+    claimChoicesEl.innerHTML = "";
+    claimBtn.hidden = true;
+    againBtn.hidden = true;
+    packsLink.hidden = true;
+    return;
+  }
+
+  if (profile.pendingClaim) {
+    resultTextEl.textContent = `Pick one of ${profile.pendingClaim.opponent}'s cards you captured to add to your collection:`;
     renderClaimChoices();
     againBtn.hidden = true;
     packsLink.hidden = true;
-  } else {
-    const messages = {
-      win: `None of ${game.cpuName}'s cards ended in your color, so there's no card to claim this time.`,
-      loss: "Better luck next time. You never lose your own cards.",
-      draw: "No cards change hands on a draw.",
-    };
-    resultTextEl.textContent = messages[result];
-    claimChoicesEl.innerHTML = "";
-    claimBtn.hidden = true;
-    showNextButtons();
+    return;
   }
+  const lost = strikes.filter((s) => s.removed).length;
+  const messages = {
+    win: `None of ${game ? game.oppName : "your opponent"}'s cards ended in your color, so there's no card to claim this time.`,
+    loss: !game || !game.live
+      ? "Better luck next time. Games against the computer never cost you cards."
+      : strikes.length
+        ? `${lost ? `${lost === 1 ? "One card" : `${lost} cards`} reached ${STRIKES_TO_LOSE} strikes and left your collection. ` : ""}` +
+          `A card's ${STRIKES_TO_LOSE === 3 ? "third" : `${STRIKES_TO_LOSE}th`} strike removes it.`
+        : "Better luck next time. None of your cards ended in their color, so no strikes.",
+    draw: "No cards change hands on a draw.",
+  };
+  resultTextEl.textContent = messages[result];
+  claimChoicesEl.innerHTML = "";
+  claimBtn.hidden = true;
+  showNextButtons();
 }
 
 // Play Again, plus a way to the packs when the player can afford one.
 function showNextButtons() {
   const pack = PACKS[0];
   againBtn.hidden = false;
-  packsLink.hidden = player.coins < pack.price;
+  packsLink.hidden = profile.coins < pack.price;
   packsLink.textContent = `Open a Pack (🪙 ${pack.price})`;
 }
 
 function renderClaimChoices() {
+  const owned = ownedCardIds(profile);
   claimChoicesEl.innerHTML = "";
-  player.pendingClaim.options.forEach((cardId) => {
+  profile.pendingClaim.options.forEach((cardId) => {
     const btn = document.createElement("button");
     btn.className = "cc-hand-card";
     btn.dataset.cardId = cardId;
     btn.classList.toggle("selected", claimPick === cardId);
     btn.setAttribute("aria-pressed", String(claimPick === cardId));
     btn.appendChild(createCardEl(cardId));
+    if (!owned.has(cardId)) {
+      btn.appendChild(newBadgeEl());
+      btn.setAttribute("aria-label", `${getCard(cardId).name}, new`);
+    }
     claimChoicesEl.appendChild(btn);
   });
   claimBtn.hidden = false;
-  claimBtn.disabled = !claimPick;
+  claimBtn.disabled = !claimPick || busy;
 }
 
 claimChoicesEl.addEventListener("click", (e) => {
-  const btn = e.target.closest(".cc-hand-card");
-  if (!btn || !player.pendingClaim) return;
+  const btn = e.target.closest(".cc-hand-card[data-card-id]");
+  if (!btn || !profile.pendingClaim || busy) return;
   claimPick = btn.dataset.cardId;
   renderClaimChoices();
 });
 
-claimBtn.addEventListener("click", () => {
-  const claim = player.pendingClaim;
-  if (!claim || !claimPick) return;
-  player.collection.push(makeOwnedCard(claimPick, "won"));
-  player.stats.cardsClaimed++;
-  const entry = player.history.find((h) => h.at === claim.at);
-  if (entry) entry.claimed = claimPick;
-  player.pendingClaim = null;
-  saveCardSave(save);
-
-  const card = getCard(claimPick);
-  const wrap = document.createElement("div");
-  wrap.className = "cc-hand-card cc-claimed";
-  wrap.appendChild(createCardEl(claimPick));
-  claimChoicesEl.innerHTML = "";
-  claimChoicesEl.appendChild(wrap);
-  resultTextEl.textContent = `${card.name} was added to your collection!`;
-  claimBtn.hidden = true;
-  showNextButtons();
+claimBtn.addEventListener("click", async () => {
+  const cardId = claimPick;
+  if (!profile.pendingClaim || !cardId) return;
+  claimBtn.disabled = true;
+  let claimed = false;
+  await run(async () => {
+    await CardStore.claimCard(cardId);
+    claimed = true;
+    claimPick = null;
+    const wrap = document.createElement("div");
+    wrap.className = "cc-hand-card cc-claimed";
+    wrap.appendChild(createCardEl(cardId));
+    claimChoicesEl.innerHTML = "";
+    claimChoicesEl.appendChild(wrap);
+    resultTextEl.textContent = `${getCard(cardId).name} was added to your collection!`;
+    claimBtn.hidden = true;
+    showNextButtons();
+  });
+  if (!claimed && profile.pendingClaim) renderClaimChoices();
 });
 
 againBtn.addEventListener("click", () => {
-  game = null;
+  closeMatch();
   showDeck();
-  // Pick up anything another device saved while this game was on.
-  if (CardCloud.state().user) CardCloud.syncNow();
 });
 
 // A win whose reward wasn't picked yet (e.g. the page was reloaded) is shown
 // before anything else so the card isn't lost.
 function showPendingClaim() {
+  closeMatch();
   showView("play");
   boardEl.hidden = true;
   resultScoreEl.hidden = true;
   resultCoinsEl.hidden = true;
+  resultStrikesEl.hidden = true;
   setStatus("You won your last game!", "");
   showResult("win");
 }
 
-if (!player) {
-  showSetup();
-} else if (player.pendingClaim) {
-  showPendingClaim();
-} else {
-  showDeck();
+// --- Start, and keeping up with the profile ---
+function start() {
+  if (!profile) showSetup();
+  else if (profile.activeMatch) openMatch(profile.activeMatch, false);
+  else if (profile.pendingClaim) showPendingClaim();
+  else showDeck();
 }
+
+function onProfile(next) {
+  const first = !profileKnown;
+  profileKnown = true;
+  profile = next;
+  if (first) {
+    start();
+    return;
+  }
+  if (!profile) {
+    stopQueue();
+    closeMatch();
+    showSetup();
+  } else if (view === "setup") {
+    showDeck(`Welcome, ${profile.name}! Here are your ${STARTER_SIZE} starter cards.`);
+  } else if (view === "deck") {
+    renderProfileBar();
+    renderDeck();
+  } else if (view === "queue") {
+    if (profile.activeMatch) enterMatch(profile.activeMatch);
+  } else if (view === "play") {
+    const waiting = game && game.awaitingProfile;
+    if (waiting) showResult(waiting.result, waiting.strikes, waiting.matchId);
+    renderResultCoins();
+  }
+}
+
+if (online) setStatus("Loading your profile…");
+CardStore.onProfile(onProfile);
 
 // --- Service worker registration for offline standalone use ---
 if ("serviceWorker" in navigator) {

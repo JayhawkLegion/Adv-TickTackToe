@@ -1,6 +1,7 @@
 // Card Clash packs: spend coins on a pack, then turn its cards over one by
-// one (or all at once). The pack's cards are added to the collection and
-// saved as soon as it's bought, so leaving mid-reveal loses nothing.
+// one (or all at once). The pack's cards are added to the collection as soon
+// as it's bought (by the server when signed in), so leaving mid-reveal loses
+// nothing.
 const statusEl = document.getElementById("status");
 const noPlayerEl = document.getElementById("noPlayer");
 const shopEl = document.getElementById("shop");
@@ -24,10 +25,10 @@ const doneBtn = document.getElementById("doneBtn");
 const TEAR_MS = 700;
 const REVEAL_STAGGER_MS = 280;
 
-const save = loadCardSave();
-const player = getCurrentPlayer(save);
-const pack = PACKS[0];
+let player = null;
+let pack = PACKS[0];
 let drawn = []; // the open pack's cards: { cardId, isNew, revealed }
+let buying = false;
 
 const OFFER_STATUS = "Spend coins on packs of random cards.";
 
@@ -42,9 +43,11 @@ function renderOffer() {
   packSizeEl.textContent = `${pack.size} cards`;
   buyBtn.textContent = `Open a Pack (🪙 ${pack.price})`;
   const short = pack.price - player.coins;
-  buyBtn.disabled = short > 0;
+  buyBtn.disabled = short > 0 || buying;
+  if (!doneBtn.hidden) againBtn.hidden = short > 0;
   buyHintEl.textContent = short > 0
-    ? `You need ${short} more coins. Games pay ${COIN_REWARDS.win} for a win, ${COIN_REWARDS.draw} for a draw and ${COIN_REWARDS.loss} for a loss.`
+    ? `You need ${short} more coins. Games against the computer pay ${rewardText("cpu")}; ` +
+      `against other players, ${rewardText("live")}.`
     : `${pack.size} random cards for ${pack.price} coins.`;
 
   // The real chance now: rarities with no cards yet can't be drawn, so their
@@ -69,17 +72,23 @@ function renderOffer() {
 }
 
 // --- Opening ---
-function buyPack() {
+async function buyPack() {
+  if (buying) return;
+  buying = true;
   buyBtn.disabled = true;
-  againBtn.hidden = true;
-  const result = openPack(player, pack);
-  if (!result) {
-    renderOffer();
+  againBtn.disabled = true;
+  let result;
+  try {
+    result = await CardStore.openPack(pack.id);
+  } catch (err) {
+    setStatus(err.message || "Couldn't open the pack. Please try again.");
     return;
+  } finally {
+    buying = false;
+    againBtn.disabled = false;
+    renderOffer();
   }
-  saveCardSave(save);
   drawn = result.map((card) => ({ ...card, revealed: false }));
-  coinBalanceEl.textContent = player.coins.toLocaleString();
   setStatus(`Opening your ${pack.name}…`);
 
   offerEl.hidden = true;
@@ -128,12 +137,7 @@ function reveal(i) {
   cardEl.classList.add("cc-flipping");
   if (def.rarity !== "common") cardEl.classList.add("cc-glow");
   slot.appendChild(cardEl);
-  if (card.isNew) {
-    const badge = document.createElement("span");
-    badge.className = "cc-new-badge";
-    badge.textContent = "NEW";
-    slot.appendChild(badge);
-  }
+  if (card.isNew) slot.appendChild(newBadgeEl());
   const caption = document.createElement("span");
   caption.className = "cc-caption";
   caption.innerHTML = `<span>${escapeHtml(def.name)}</span><span class="cc-muted" style="color: ${RARITIES[def.rarity].color}">${RARITIES[def.rarity].label}</span>`;
@@ -176,10 +180,22 @@ doneBtn.addEventListener("click", () => {
   renderOffer();
 });
 
-if (!player) {
-  noPlayerEl.hidden = false;
-} else {
-  shopEl.hidden = false;
-  setStatus(OFFER_STATUS);
+// The profile (and, online, the pack settings) can change while the page is
+// open; the shop keeps up.
+let shown = false;
+if (CardStore.mode === "online") setStatus("Loading your profile…");
+CardStore.onProfile((next) => {
+  player = next;
+  pack = PACKS[0];
+  noPlayerEl.hidden = Boolean(player);
+  shopEl.hidden = !player;
+  if (!player) {
+    setStatus("");
+    return;
+  }
+  if (!shown) {
+    shown = true;
+    setStatus(OFFER_STATUS);
+  }
   renderOffer();
-}
+});
