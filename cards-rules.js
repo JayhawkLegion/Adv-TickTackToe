@@ -17,10 +17,11 @@ const CardRules = (() => {
     epic: { label: "Epic", color: "#c084fc" },
     legendary: { label: "Legendary", color: "#f59e0b" },
   };
-  // Chance (%) that a randomly drawn card (starter cards, the computer's
-  // hand) is of each rarity. Adjustable in the Card Builder; totals 100.
-  // Epics come from the Apex Pack (and from beating players who own them),
-  // so random draws are common and rare only.
+  // Chance (%) that a randomly drawn card (new players' starter cards) is of
+  // each rarity. Adjustable in the Card Builder; totals 100. Epics come from
+  // the Apex Pack (and from beating players who own them), so random draws
+  // are common and rare only. The computer's hand copies the player's cards
+  // instead (cpuHand).
   const DEFAULT_RARITY_CHANCES = { common: 78, rare: 22, epic: 0, legendary: 0 };
 
   const SIDES = ["top", "right", "bottom", "left"];
@@ -63,6 +64,41 @@ const CardRules = (() => {
     { id: "apex", name: "Apex Pack", price: 500, size: 5, odds: { common: 56, rare: 24, epic: 20, legendary: 0 } },
   ];
   const PACK_LIMITS = { nameLength: 24, maxPrice: 100000, maxSize: 10 };
+
+  // Upgrades: duplicates of a card can be spent to raise one side of one copy
+  // by 1. Each side can be raised once, up to UPGRADE_MAX upgrades per copy;
+  // the nth upgrade uses UPGRADE_COSTS[n - 1] duplicates. An upgrade belongs
+  // to that copy alone: a lost copy loses it, and a claimed card is always
+  // plain.
+  const UPGRADE_MAX = 3;
+  const UPGRADE_COSTS = [1, 2, 3];
+  const SIDE_LIMIT = 10;
+
+  // Experience: every finished game earns XP (none for a game you resign or
+  // forfeit). Going from level n to n + 1 takes LEVEL_XP_STEP × n XP, so
+  // levels come more slowly as they rise.
+  const XP_REWARDS = {
+    cpu: { win: 10, draw: 7, loss: 5 },
+    live: { win: 20, draw: 15, loss: 10 },
+  };
+  const LEVEL_XP_STEP = 50;
+  const MAX_LEVEL = 50;
+
+  // The computer's difficulty by the player's level: early levels it makes
+  // mistakes (the chance of a random move instead of its best), then its
+  // cards get upgrades: one more every CPU_LEVELS_PER_UPGRADE levels.
+  const CPU_MISTAKES = [0.4, 0.3, 0.2, 0.1];
+  const CPU_LEVELS_PER_UPGRADE = 2;
+  // Its cards copy the rarity of the player's and total the same or up to
+  // this much less, so a win never claims anything stronger than you brought.
+  const CPU_MIRROR_RANGE = 2;
+
+  // Find a Player pairs players whose levels and hand strength (the total of
+  // the hand's numbers, upgrades included) are close; the allowed gaps widen
+  // every MATCH_WIDEN_MS that either player has waited.
+  const MATCH_LEVEL_GAP = 3;
+  const MATCH_POWER_GAP = 8;
+  const MATCH_WIDEN_MS = 10000;
 
   const CPU_NAMES = [
     "Robo Rex", "Captain Byte", "Pixel Pete", "Glitch", "Turbo Tess",
@@ -241,10 +277,22 @@ const CardRules = (() => {
     { dr: 0, dc: 1, side: "right", facing: "left" },
   ];
 
-  // Slots of opponent cards that flip when `cardId` is placed at `index` by
-  // `color`: each touching enemy card whose facing number is lower.
-  function findFlips(pool, board, index, cardId, color) {
+  // A card's numbers with a copy's upgrades ({ top: 1 }) added.
+  function sidesOf(pool, cardId, boost) {
     const card = pool.byId[cardId];
+    if (!boost) return card;
+    const sides = {};
+    SIDES.forEach((side) => {
+      sides[side] = card[side] + (boost[side] || 0);
+    });
+    return sides;
+  }
+
+  // Slots of opponent cards that flip when `cardId` (with `boost`, its
+  // upgrades) is placed at `index` by `color`: each touching enemy card whose
+  // facing number is lower.
+  function findFlips(pool, board, index, cardId, color, boost) {
+    const card = sidesOf(pool, cardId, boost);
     const row = Math.floor(index / 3);
     const col = index % 3;
     const flips = [];
@@ -254,15 +302,15 @@ const CardRules = (() => {
       if (r < 0 || r > 2 || c < 0 || c > 2) return;
       const other = board[r * 3 + c];
       if (!other || other.color === color) return;
-      if (pool.byId[other.cardId][facing] < card[side]) flips.push(r * 3 + c);
+      if (sidesOf(pool, other.cardId, other.boost)[facing] < card[side]) flips.push(r * 3 + c);
     });
     return flips;
   }
 
-  // Places a card and flips what it beats. `extra` (e.g. who played it) is
-  // kept on the board slot. Returns the flipped slots.
+  // Places a card and flips what it beats. `extra` (who played it, its
+  // upgrades as `boost`) is kept on the board slot. Returns the flipped slots.
   function placeCard(pool, board, index, cardId, color, extra = {}) {
-    const flips = findFlips(pool, board, index, cardId, color);
+    const flips = findFlips(pool, board, index, cardId, color, extra.boost);
     board[index] = { cardId, color, startColor: color, ...extra };
     flips.forEach((i) => {
       board[i].color = color;
@@ -276,14 +324,17 @@ const CardRules = (() => {
 
   // The computer player. "smart" (the game's opponent) takes the move that
   // flips the most cards now, choosing randomly between equals; "random"
-  // plays any open square. `hand` is a list of card ids. Returns
+  // plays any open square. With `mistakes` (0-1) a smart player sometimes
+  // plays at random. `hand` lists card ids or { cardId, boost }. Returns
   // { handIndex, slot }.
-  function chooseMove(pool, board, hand, color, style = "smart", rng = Math.random) {
+  function chooseMove(pool, board, hand, color, style = "smart", rng = Math.random, mistakes = 0) {
+    const smart = style === "smart" && !(mistakes > 0 && rng() < mistakes);
     const moves = [];
-    hand.forEach((cardId, handIndex) => {
+    hand.forEach((entry, handIndex) => {
+      const { cardId, boost } = typeof entry === "string" ? { cardId: entry } : entry;
       board.forEach((taken, slot) => {
         if (taken) return;
-        const flips = style === "smart" ? findFlips(pool, board, slot, cardId, color).length : 0;
+        const flips = smart ? findFlips(pool, board, slot, cardId, color, boost).length : 0;
         moves.push({ handIndex, slot, flips });
       });
     });
@@ -315,7 +366,8 @@ const CardRules = (() => {
     return seat === "a" ? "b" : "a";
   }
 
-  function newMatch({ id, mode, a, b, rng = Math.random, now = Date.now() }) {
+  // `cpu` is the computer's difficulty (cpuDifficulty) in games against it.
+  function newMatch({ id, mode, a, b, cpu = null, rng = Math.random, now = Date.now() }) {
     const first = rng() < 0.5 ? "a" : "b";
     const state = {
       id,
@@ -330,6 +382,7 @@ const CardRules = (() => {
       startHands: { a: a.hand.map((c) => c.cardId), b: b.hand.map((c) => c.cardId) },
       moves: [],
       timeouts: { a: 0, b: 0 },
+      cpu,
       turnDeadline: null,
       result: null,
       createdAt: now,
@@ -359,8 +412,9 @@ const CardRules = (() => {
     if (handIndex === -1) return { ok: false, error: "That card isn't in your hand." };
     const [card] = state.hands[seat].splice(handIndex, 1);
     const color = state.colors[seat];
-    const flips = placeCard(pool, state.board, slot, card.cardId, color, { seat, copyUid: card.uid });
-    const move = { seat, slot, cardId: card.cardId, flips, ...(auto ? { auto: true } : {}) };
+    const boost = card.boost ? { boost: card.boost } : {};
+    const flips = placeCard(pool, state.board, slot, card.cardId, color, { seat, copyUid: card.uid, ...boost });
+    const move = { seat, slot, cardId: card.cardId, flips, ...boost, ...(auto ? { auto: true } : {}) };
     state.moves.push(move);
     if (!auto) state.timeouts[seat] = 0;
     state.updatedAt = now;
@@ -372,11 +426,12 @@ const CardRules = (() => {
     return { ok: true, move };
   }
 
-  // The computer chooses and plays a move for `seat` (the computer's own
-  // turn, or a player who ran out of time).
+  // The computer chooses and plays a move for `seat`: the computer's own turn
+  // (with its difficulty's mistakes), or a player who ran out of time.
   function autoMove(pool, state, seat, { now = Date.now(), rng = Math.random, auto = false } = {}) {
     const hand = state.hands[seat];
-    const { handIndex, slot } = chooseMove(pool, state.board, hand.map((c) => c.cardId), state.colors[seat], "smart", rng);
+    const mistakes = !auto && isCpuSeat(state, seat) && state.cpu ? state.cpu.mistakes : 0;
+    const { handIndex, slot } = chooseMove(pool, state.board, hand, state.colors[seat], "smart", rng, mistakes);
     return playMove(pool, state, seat, hand[handIndex].uid, slot, { now, auto });
   }
 
@@ -440,7 +495,7 @@ const CardRules = (() => {
   function emptyStats() {
     return {
       played: 0, wins: 0, losses: 0, draws: 0, currentStreak: 0, bestStreak: 0, cardsClaimed: 0, flipsMade: 0,
-      coinsEarned: 0, coinsSpent: 0, packsOpened: 0, cardsLost: 0,
+      coinsEarned: 0, coinsSpent: 0, packsOpened: 0, cardsLost: 0, upgrades: 0,
     };
   }
 
@@ -457,6 +512,7 @@ const CardRules = (() => {
       name: cleanName(name),
       createdAt: now,
       coins: STARTING_COINS,
+      xp: 0,
       collection: randomCards(pool, STARTER_SIZE, pool.chances, rng).map((cardId) => makeOwnedCard(cardId, "starter", newId, now)),
       stats: emptyStats(),
       cardStats: {},
@@ -472,6 +528,12 @@ const CardRules = (() => {
   function normalizeProfile(profile) {
     profile.stats = { ...emptyStats(), ...profile.stats };
     if (!Number.isFinite(profile.coins)) profile.coins = STARTING_COINS;
+    // Players from before experience existed get XP for the games they'd
+    // played, as if against the computer.
+    if (!Number.isFinite(profile.xp)) {
+      const { wins, losses, draws } = profile.stats;
+      profile.xp = wins * XP_REWARDS.cpu.win + losses * XP_REWARDS.cpu.loss + draws * XP_REWARDS.cpu.draw;
+    }
     profile.cardStats = profile.cardStats || {};
     profile.decks = Array.isArray(profile.decks)
       ? profile.decks.filter((d) => d && typeof d.id === "string" && typeof d.name === "string" && Array.isArray(d.uids))
@@ -501,12 +563,134 @@ const CardRules = (() => {
   }
 
   // A hand of 5 different playable copies the player owns, as
-  // [{ uid, cardId }], or null.
+  // [{ uid, cardId, boost? }], or null.
   function validateHand(pool, profile, uids) {
     if (!Array.isArray(uids) || uids.length !== HAND_SIZE || new Set(uids).size !== HAND_SIZE) return null;
     const byUid = new Map(playableCollection(pool, profile).map((o) => [o.uid, o]));
     if (!uids.every((uid) => byUid.has(uid))) return null;
-    return uids.map((uid) => ({ uid, cardId: byUid.get(uid).cardId }));
+    return uids.map((uid) => {
+      const owned = byUid.get(uid);
+      return { uid, cardId: owned.cardId, ...(upgradesOf(owned) ? { boost: { ...owned.boost } } : {}) };
+    });
+  }
+
+  // The total of a hand's numbers, upgrades included.
+  function handPower(pool, hand) {
+    return hand.reduce((sum, c) => sum + cardTotal(sidesOf(pool, c.cardId, c.boost)), 0);
+  }
+
+  // --- Upgrades ---
+  function upgradesOf(copy) {
+    return copy.boost ? Object.values(copy.boost).reduce((sum, n) => sum + n, 0) : 0;
+  }
+
+  // Why `side` of a copy ({ cardId, boost }) can't be raised, or "".
+  function raiseProblem(pool, copy, side) {
+    if (!SIDES.includes(side)) return "Pick a side to upgrade.";
+    if (upgradesOf(copy) >= UPGRADE_MAX) return `This copy already has all ${UPGRADE_MAX} upgrades.`;
+    if (copy.boost && copy.boost[side]) return "That side has already been upgraded.";
+    if (sidesOf(pool, copy.cardId, copy.boost)[side] >= SIDE_LIMIT) return `That side is already ${SIDE_LIMIT}.`;
+    return "";
+  }
+
+  // Duplicates the next upgrade of `copy` uses, or null at the limit.
+  function upgradeCost(copy) {
+    return UPGRADE_COSTS[upgradesOf(copy)] ?? null;
+  }
+
+  // The player's spare copies of the same card that an upgrade of `copy` can
+  // use, best to give up first: plain copies only, those outside saved decks
+  // first, then the most struck, then the newest.
+  function upgradeFodder(profile, copy) {
+    const inDecks = new Set(profile.decks.flatMap((d) => d.uids));
+    return profile.collection
+      .filter((o) => o.uid !== copy.uid && o.cardId === copy.cardId && !upgradesOf(o))
+      .sort((a, b) => inDecks.has(a.uid) - inDecks.has(b.uid) || (b.strikes || 0) - (a.strikes || 0) || b.acquiredAt - a.acquiredAt);
+  }
+
+  // Raises `side` of the player's copy `copyUid` by 1, using up duplicates.
+  // Returns { owned, used: [uids] } or { error }.
+  function upgradeCopy(pool, profile, copyUid, side) {
+    const owned = playableCollection(pool, profile).find((o) => o.uid === copyUid);
+    if (!owned) return { error: "That card isn't in your collection." };
+    const problem = raiseProblem(pool, owned, side);
+    if (problem) return { error: problem };
+    const cost = upgradeCost(owned);
+    const fodder = upgradeFodder(profile, owned);
+    if (fodder.length < cost) {
+      return { error: `This upgrade uses ${cost} duplicate${cost === 1 ? "" : "s"} of the card; you have ${fodder.length}.` };
+    }
+    const used = new Set(fodder.slice(0, cost).map((o) => o.uid));
+    profile.collection = profile.collection.filter((o) => !used.has(o.uid));
+    profile.lastHand = profile.lastHand.filter((uid) => !used.has(uid));
+    owned.boost = { ...(owned.boost || {}), [side]: ((owned.boost && owned.boost[side]) || 0) + 1 };
+    profile.stats.upgrades++;
+    return { owned, used: [...used] };
+  }
+
+  // --- Experience and the computer's difficulty ---
+  // Total XP needed to reach `level`.
+  function xpForLevel(level) {
+    return (LEVEL_XP_STEP * (level - 1) * level) / 2;
+  }
+
+  function levelFor(xp) {
+    let level = 1;
+    while (level < MAX_LEVEL && xp >= xpForLevel(level + 1)) level++;
+    return level;
+  }
+
+  // { level, into: XP into this level, needed: XP this level takes (null at the top) }
+  function levelProgress(xp) {
+    const level = levelFor(xp);
+    const start = xpForLevel(level);
+    return { level, into: xp - start, needed: level < MAX_LEVEL ? xpForLevel(level + 1) - start : null };
+  }
+
+  // How the computer plays someone of `level`: { level, mistakes, upgrades }.
+  function cpuDifficulty(level) {
+    return {
+      level,
+      mistakes: CPU_MISTAKES[level - 1] || 0,
+      upgrades: Math.min(Math.floor((level - 1) / CPU_LEVELS_PER_UPGRADE), HAND_SIZE * UPGRADE_MAX),
+    };
+  }
+
+  // The computer's hand against the player's `hand`: for each of the
+  // player's cards, a random card of the same rarity whose plain total is the
+  // same or up to CPU_MIRROR_RANGE less, then the difficulty's upgrades, one
+  // at a time on a random card and side. [{ uid, cardId, boost? }]
+  function cpuHand(pool, hand, difficulty, { newId, rng = Math.random }) {
+    const cards = hand.map((c) => {
+      const base = pool.byId[c.cardId];
+      const total = cardTotal(base);
+      const lower = pool.cards.filter((card) => card.rarity === base.rarity && cardTotal(card) <= total);
+      const top = Math.max(...lower.map(cardTotal));
+      const picks = lower.filter((card) => cardTotal(card) >= top - CPU_MIRROR_RANGE);
+      return { uid: newId("x_"), cardId: picks.length ? randomItem(picks, rng).id : base.id };
+    });
+    for (let i = 0; i < difficulty.upgrades; i++) {
+      const options = [];
+      cards.forEach((card, index) => {
+        SIDES.forEach((side) => {
+          if (!raiseProblem(pool, card, side)) options.push({ index, side });
+        });
+      });
+      if (!options.length) break;
+      const { index, side } = randomItem(options, rng);
+      cards[index].boost = { ...(cards[index].boost || {}), [side]: 1 };
+    }
+    return cards;
+  }
+
+  // How well two waiting players match (lower is better), or null if they're
+  // too far apart yet. Each is { level, power, since }.
+  function matchGap(a, b, now = Date.now()) {
+    const widen = Math.floor(Math.max(now - a.since, now - b.since, 0) / MATCH_WIDEN_MS);
+    const levels = Math.abs(a.level - b.level);
+    const power = Math.abs(a.power - b.power);
+    if (levels > MATCH_LEVEL_GAP + widen || power > MATCH_POWER_GAP + widen * 3) return null;
+    return levels * 10 + power;
   }
 
   // --- Saved decks: a named set of 5 owned copies (by uid) ---
@@ -545,10 +729,12 @@ const CardRules = (() => {
   }
 
   // --- After a game ---
-  // Applies a finished match to one player's profile: coins, stats, per-card
-  // results, history, strikes (live losses) and the winner's card claim.
+  // Applies a finished match to one player's profile: coins, XP, stats,
+  // per-card results, history, strikes (live losses) and the winner's card
+  // claim. A player who resigned or ran out of time earns no coins or XP.
   // Returns what changed, for the result screen:
-  // { result, coins, scores: [mine, theirs], strikes: [{ copyUid, cardId, strikes, removed }], claimOptions }
+  // { result, coins, xp, level, levelUp, scores: [mine, theirs],
+  //   strikes: [{ copyUid, cardId, strikes, removed }], claimOptions }
   function settleForSeat(pool, state, seat, profile, now = Date.now()) {
     const result = resultFor(state, seat);
     const opp = otherSeat(seat);
@@ -566,9 +752,14 @@ const CardRules = (() => {
       else stats.draws++;
       stats.currentStreak = 0;
     }
-    const coins = COIN_REWARDS[state.mode][result];
+    const forfeited = state.result.forfeiter === seat;
+    const coins = forfeited ? 0 : COIN_REWARDS[state.mode][result];
     profile.coins += coins;
     stats.coinsEarned += coins;
+    const xp = forfeited ? 0 : XP_REWARDS[state.mode][result];
+    const levelBefore = levelFor(profile.xp);
+    profile.xp += xp;
+    const level = levelFor(profile.xp);
 
     [...new Set(state.startHands[seat])].forEach((id) => {
       const s = (profile.cardStats[id] = profile.cardStats[id] || { played: 0, win: 0, loss: 0, draw: 0 });
@@ -615,12 +806,15 @@ const CardRules = (() => {
       wentFirst: state.first === seat,
       reason: state.result.reason,
       coins,
+      xp,
       strikes: strikes.length,
       lost: strikes.filter((s) => s.removed).length,
       claimed: null,
     });
     profile.history = profile.history.slice(0, HISTORY_LIMIT);
-    return { result, coins, scores: [scores[seat], scores[opp]], strikes, claimOptions };
+    return {
+      result, coins, xp, level, levelUp: level > levelBefore, scores: [scores[seat], scores[opp]], strikes, claimOptions,
+    };
   }
 
   // Takes the claimed card from the player's pending claim; returns the new
@@ -659,6 +853,9 @@ const CardRules = (() => {
     RARITY_ORDER, RARITIES, DEFAULT_RARITY_CHANCES, SIDES, HAND_SIZE, STARTER_SIZE, MAX_DECKS, DECK_NAME_LENGTH,
     NAME_LENGTH, HISTORY_LIMIT, STARTING_COINS, COIN_REWARDS, STRIKES_TO_LOSE, TURN_SECONDS, MAX_TIMEOUTS, SCORING,
     DEFAULT_PACKS, PACK_LIMITS, CPU_NAMES, PLAY_STYLES, BUILT_IN_BY_ID, OTHER_SET, SETS_BY_ID, CARD_SETS: SETS,
+    UPGRADE_MAX, UPGRADE_COSTS, SIDE_LIMIT, XP_REWARDS, MAX_LEVEL, CPU_MIRROR_RANGE,
+    sidesOf, handPower, upgradesOf, raiseProblem, upgradeCost, upgradeFodder, upgradeCopy,
+    xpForLevel, levelFor, levelProgress, cpuDifficulty, cpuHand, matchGap,
     isValidCard, cleanCard, sameCard, upgradeId, upgradeCard, upgradeChances, chancesTotal, isValidChances,
     isValidPack, cleanPack, buildPool, poolSaveData, cardSet, cardTotal,
     randomItem, effectiveChances, randomRarity, randomCards,

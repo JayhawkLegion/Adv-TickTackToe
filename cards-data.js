@@ -5,7 +5,8 @@
 const {
   RARITY_ORDER, RARITIES, DEFAULT_RARITY_CHANCES, SIDES, HAND_SIZE, STARTER_SIZE, MAX_DECKS, DECK_NAME_LENGTH,
   HISTORY_LIMIT, STARTING_COINS, COIN_REWARDS, STRIKES_TO_LOSE, TURN_SECONDS, MAX_TIMEOUTS, SCORING, DEFAULT_PACKS,
-  PACK_LIMITS, CPU_NAMES, PLAY_STYLES, BUILT_IN_BY_ID, OTHER_SET, SETS_BY_ID,
+  PACK_LIMITS, CPU_NAMES, PLAY_STYLES, BUILT_IN_BY_ID, OTHER_SET, SETS_BY_ID, UPGRADE_MAX, UPGRADE_COSTS, SIDE_LIMIT,
+  XP_REWARDS, MAX_LEVEL,
   isValidCard, cleanCard, sameCard, upgradeCard, upgradeChances, chancesTotal, isValidChances, isValidPack,
   cleanPack, cardSet, cardTotal, randomItem, colorCount, otherSeat, emptyStats, cleanName,
 } = CardRules;
@@ -81,16 +82,17 @@ function randomCards(count, odds = RARITY_CHANCES) {
 }
 
 // The rules on a bare board (the simulator and the game screen's previews).
-function placeCard(board, index, cardId, color) {
-  return CardRules.placeCard(POOL, board, index, cardId, color);
+// `boost` is a copy's upgrades; hands list card ids or { cardId, boost }.
+function placeCard(board, index, cardId, color, boost = null) {
+  return CardRules.placeCard(POOL, board, index, cardId, color, boost ? { boost } : {});
 }
 
-function findFlips(board, index, cardId, color) {
-  return CardRules.findFlips(POOL, board, index, cardId, color);
+function findFlips(board, index, cardId, color, boost = null) {
+  return CardRules.findFlips(POOL, board, index, cardId, color, boost);
 }
 
-function chooseMove(board, hand, color, style = "smart") {
-  return CardRules.chooseMove(POOL, board, hand, color, style);
+function chooseMove(board, hand, color, style = "smart", mistakes = 0) {
+  return CardRules.chooseMove(POOL, board, hand, color, style, Math.random, mistakes);
 }
 
 function newId(prefix) {
@@ -191,32 +193,38 @@ function escapeHtml(text) {
 // `cardOrId` is a card id or a card object (the Card Builder previews unsaved
 // cards). color: "red" | "blue" for a card in play, "neutral" otherwise.
 // Neutral cards show their rarity as the border color; every card above
-// common also gets a rarity gem in its top-left corner. `strikes` (an owned
-// copy's) shows as marks along the bottom edge.
-function createCardEl(cardOrId, color = "neutral", strikes = 0) {
+// common also gets a rarity gem in its top-left corner. For an owned copy,
+// `strikes` show as marks in the bottom-right corner and `boost` (its
+// upgrades, { top: 1 }) raises those numbers, which are highlighted.
+function createCardEl(cardOrId, color = "neutral", { strikes = 0, boost = null } = {}) {
   const card = typeof cardOrId === "string" ? getCard(cardOrId) : cardOrId;
   const rarity = RARITIES[card.rarity];
+  const value = (side) => card[side] + ((boost && boost[side]) || 0);
+  const num = (side) => `<span class="cc-num cc-${side}${boost && boost[side] ? " cc-up" : ""}">${value(side)}</span>`;
   const el = document.createElement("div");
   el.className = `cc-card ${color}`;
   el.dataset.rarity = card.rarity;
   el.style.setProperty("--rarity-color", rarity.color);
   el.setAttribute("role", "img");
+  const sides = SIDES.map((side) => `${side} ${value(side)}${boost && boost[side] ? " (upgraded)" : ""}`).join(", ");
   const struck = strikes ? `, ${strikeText(strikes)}` : "";
-  el.setAttribute(
-    "aria-label",
-    `${card.name}, ${rarity.label}: top ${card.top}, right ${card.right}, bottom ${card.bottom}, left ${card.left}${struck}`
-  );
+  el.setAttribute("aria-label", `${card.name}, ${rarity.label}: ${sides}${struck}`);
   const gem = card.rarity === "common" ? "" : `<span class="cc-gem" title="${rarity.label}"></span>`;
   el.innerHTML = `
     ${gem}
-    <span class="cc-num cc-top">${card.top}</span>
-    <span class="cc-num cc-left">${card.left}</span>
+    ${num("top")}
+    ${num("left")}
     <span class="cc-face"><span class="cc-icon">${escapeHtml(card.icon)}</span><span class="cc-name">${escapeHtml(card.name)}</span></span>
-    <span class="cc-num cc-right">${card.right}</span>
-    <span class="cc-num cc-bottom">${card.bottom}</span>
+    ${num("right")}
+    ${num("bottom")}
   `;
   if (strikes) el.appendChild(strikeMarksEl(strikes));
   return el;
+}
+
+// How an owned copy looks: its strikes and upgrades (for createCardEl).
+function copyLook(owned) {
+  return owned ? { strikes: owned.strikes || 0, boost: owned.boost || null } : {};
 }
 
 function strikeText(strikes) {
@@ -252,6 +260,11 @@ function rewardText(mode) {
   return SCORING === "board"
     ? `${r.win} coins for a win and ${r.loss} for a loss`
     : `${r.win} coins for a win, ${r.draw} for a draw and ${r.loss} for a loss`;
+}
+
+// "Level 3 · 120 / 150 XP" parts for a player's XP.
+function levelInfo(xp) {
+  return CardRules.levelProgress(xp || 0);
 }
 
 // 75 → "1:15"

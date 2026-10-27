@@ -38,6 +38,9 @@
       <label for="oppStyle">Opponent plays</label>
       <select id="oppStyle" class="cc-select"></select>
 
+      <label for="oppLevel">Opponent's cards</label>
+      <select id="oppLevel" class="cc-select"></select>
+
       <label for="firstSide">Who goes first</label>
       <select id="firstSide" class="cc-select">
         <option value="coin">Coin toss</option>
@@ -47,7 +50,8 @@
     </div>
     <div id="savedHand" class="cc-hand cc-sim-preview" aria-label="Your saved hand"></div>
     <p class="settings-hint">
-      The opponent gets 5 random cards from the pool each game, drawn with the rarity chances, just like a real game.
+      "Like the game" deals the opponent what the computer gets against a player of that level: cards like
+      yours (same rarity, the same total or a little less) with upgrades, and at levels 1–4 some mistakes.
       "Smart" is how the game's opponent plays: it takes whichever move flips the most cards. "Random" plays any open square.
     </p>
 

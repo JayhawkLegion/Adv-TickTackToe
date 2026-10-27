@@ -69,6 +69,10 @@ const resignBtn = document.getElementById("resignBtn");
 const resultPanelEl = document.getElementById("resultPanel");
 const resultScoreEl = document.getElementById("resultScore");
 const resultCoinsEl = document.getElementById("resultCoins");
+const resultXpEl = document.getElementById("resultXp");
+const deckLevelEl = document.getElementById("deckLevel");
+const deckXpBarEl = document.getElementById("deckXpBar");
+const deckXpEl = document.getElementById("deckXp");
 const resultStrikesEl = document.getElementById("resultStrikes");
 const packsLink = document.getElementById("packsLink");
 const resultTextEl = document.getElementById("resultText");
@@ -115,6 +119,14 @@ document.getElementById("strikeRule").textContent =
 document.getElementById("clockRule").textContent =
   `Against other players each turn has ${TURN_SECONDS} seconds. When time runs out the computer plays for you, ` +
   `and running out ${MAX_TIMEOUTS === 2 ? "twice" : `${MAX_TIMEOUTS} times`} in a row forfeits the game.`;
+document.getElementById("levelRule").textContent =
+  "Every finished game earns experience (XP), more for a win and more against people. As your level rises, " +
+  "the computer makes fewer mistakes and its cards get upgrades. It always plays cards like yours, never " +
+  "stronger, and a card you claim from it comes without its upgrades.";
+document.getElementById("upgradeRule").textContent =
+  `Upgrade a card in Collection & Stats: use duplicate copies to raise one side of a copy by 1 ` +
+  `(each side once, up to ${UPGRADE_MAX} upgrades). Upgrades stay with that copy; a card someone claims ` +
+  "from you never carries them.";
 document.getElementById("coinRule").textContent =
   `Every game earns coins: against the computer ${rewardText("cpu")}; against another player ${rewardText("live")}. ` +
   "Spend them on card packs.";
@@ -205,6 +217,14 @@ function renderProfileBar() {
   const { wins, losses, draws } = profile.stats;
   const record = draws ? `${wins}W – ${losses}L – ${draws}D` : `${wins}W – ${losses}L`;
   deckRecordEl.textContent = `${record} · ${playableCollection(profile).length} cards`;
+  const { level, into, needed } = levelInfo(profile.xp);
+  deckLevelEl.textContent = `Level ${level}`;
+  deckXpBarEl.hidden = needed === null;
+  deckXpBarEl.firstElementChild.style.width = needed ? `${(into / needed) * 100}%` : "100%";
+  deckXpBarEl.setAttribute("aria-valuemax", String(needed || 1));
+  deckXpBarEl.setAttribute("aria-valuenow", String(needed ? into : 1));
+  deckXpBarEl.setAttribute("aria-label", `Level ${level} progress`);
+  deckXpEl.textContent = needed === null ? `${profile.xp.toLocaleString()} XP` : `${into} / ${needed} XP`;
   deckCoinsEl.textContent = profile.coins.toLocaleString();
 }
 
@@ -225,9 +245,9 @@ pickTabsEl.addEventListener("click", (e) => {
   if (btn) showPickTab(btn.dataset.tab);
 });
 
-function strikesOf(uid) {
-  const owned = profile && profile.collection.find((o) => o.uid === uid);
-  return owned ? owned.strikes || 0 : 0;
+// An owned copy by uid (for its strikes and upgrades).
+function copyOf(uid) {
+  return profile && profile.collection.find((o) => o.uid === uid);
 }
 
 function renderDeck() {
@@ -249,7 +269,7 @@ function renderDeck() {
     const picked = selectedUids.includes(owned.uid);
     btn.classList.toggle("selected", picked);
     btn.setAttribute("aria-pressed", String(picked));
-    btn.appendChild(createCardEl(owned.cardId, "neutral", owned.strikes));
+    btn.appendChild(createCardEl(owned.cardId, "neutral", copyLook(owned)));
     deckGridEl.appendChild(btn);
   });
 
@@ -358,7 +378,7 @@ function renderSavedDecks() {
     head.append(name, info);
     const cardsRow = document.createElement("span");
     cardsRow.className = "cc-deck-cards";
-    if (ids) deck.uids.forEach((uid, i) => cardsRow.appendChild(createCardEl(ids[i], "neutral", strikesOf(uid))));
+    if (ids) deck.uids.forEach((uid, i) => cardsRow.appendChild(createCardEl(ids[i], "neutral", copyLook(copyOf(uid)))));
     pick.append(head, cardsRow);
 
     const actions = document.createElement("span");
@@ -604,7 +624,8 @@ function setUpMatch({ match, seat }) {
   game.colors = match.colors;
   game.live = match.mode === "live";
   game.oppName = match.seats[game.opp].name;
-  oppLabelEl.textContent = `${game.live ? "👤" : "🤖"} ${game.oppName}`;
+  // The computer's level is the player's: it plays to their experience.
+  oppLabelEl.textContent = game.live ? `👤 ${game.oppName}` : `🤖 ${game.oppName}${match.cpu ? ` · Lv ${match.cpu.level}` : ""}`;
   youLabelEl.textContent = match.seats[seat].name;
   oppSideEl.dataset.color = game.colors[game.opp];
   youSideEl.dataset.color = game.colors[seat];
@@ -634,7 +655,7 @@ function setUpMatch({ match, seat }) {
 
 function applyMove(board, move) {
   const color = game.colors[move.seat];
-  board[move.slot] = { cardId: move.cardId, color, seat: move.seat };
+  board[move.slot] = { cardId: move.cardId, color, seat: move.seat, ...(move.boost ? { boost: move.boost } : {}) };
   move.flips.forEach((i) => {
     board[i].color = color;
   });
@@ -773,7 +794,8 @@ function renderHand(side) {
       btn.classList.toggle("selected", picked);
       btn.disabled = !myTurn;
       btn.setAttribute("aria-pressed", String(picked));
-      btn.appendChild(createCardEl(c.cardId, color, strikesOf(c.uid)));
+      const copy = copyOf(c.uid);
+      btn.appendChild(createCardEl(c.cardId, color, { strikes: copy ? copy.strikes : 0, boost: c.boost }));
       handEl.appendChild(btn);
     });
     return;
@@ -811,7 +833,7 @@ function renderBoard(placed = null, flipped = []) {
       const flipping = flipped.includes(i);
       const other = slot.color === "red" ? "blue" : "red";
       // A flipping card shows its old color until the flip's midpoint.
-      const card = createCardEl(slot.cardId, flipping ? other : slot.color);
+      const card = createCardEl(slot.cardId, flipping ? other : slot.color, { boost: slot.boost });
       if (i === placed) card.classList.add("cc-placed");
       if (flipping) {
         card.classList.add("cc-flipping");
@@ -848,10 +870,10 @@ boardEl.addEventListener("click", (e) => {
 async function playMine(card, slot) {
   const id = game.id;
   const color = game.colors[game.seat];
-  const flips = findFlips(game.board, slot, card.cardId, color);
+  const flips = findFlips(game.board, slot, card.cardId, color, card.boost);
   game.pending = { slot, cardId: card.cardId, uid: card.uid };
   game.selected = null;
-  applyMove(game.board, { seat: game.seat, slot, cardId: card.cardId, flips });
+  applyMove(game.board, { seat: game.seat, slot, cardId: card.cardId, flips, ...(card.boost ? { boost: card.boost } : {}) });
   renderBoard(slot, flips);
   game.note = moveNote({ seat: game.seat, flips });
   renderTurn();
@@ -939,6 +961,7 @@ function showFinished() {
   resultScoreEl.textContent = `You ${mine} · ${opp} ${theirs}`;
   resultScoreEl.hidden = false;
   game.coins = settlement.coins;
+  game.settled = settlement;
   renderStrikes(settlement.strikes);
   showResult(settlement.result, settlement.strikes, match.id);
   renderResultCoins();
@@ -949,10 +972,29 @@ function renderResultCoins() {
   if (!game || game.coins === undefined) return;
   if (game.awaitingProfile) {
     resultCoinsEl.hidden = true;
+    resultXpEl.hidden = true;
     return;
   }
   resultCoinsEl.textContent = `🪙 +${game.coins} coin${game.coins === 1 ? "" : "s"} · ${profile.coins.toLocaleString()} total`;
   resultCoinsEl.hidden = false;
+  renderResultXp();
+}
+
+// XP from the game, and the level it leaves the player at. (A game you
+// resign or run out of time in earns none.)
+function renderResultXp() {
+  const settled = game.settled;
+  if (!settled || settled.xp === undefined) {
+    resultXpEl.hidden = true;
+    return;
+  }
+  const { level, into, needed } = levelInfo(profile.xp);
+  const progress = needed === null ? "top level" : `${into} / ${needed} XP to level ${level + 1}`;
+  resultXpEl.textContent = settled.levelUp
+    ? `⭐ +${settled.xp} XP · Level up! You're level ${settled.level}. The computer will play you a little harder.`
+    : `⭐ +${settled.xp} XP · Level ${level} · ${progress}`;
+  resultXpEl.classList.toggle("cc-level-up", Boolean(settled.levelUp));
+  resultXpEl.hidden = false;
 }
 
 // Our cards that took a strike, with how many they have now.
@@ -1000,7 +1042,10 @@ function showResult(result, strikes = [], matchId = null) {
   }
 
   if (profile.pendingClaim) {
-    resultTextEl.textContent = `Pick one of ${profile.pendingClaim.opponent}'s cards you captured to add to your collection:`;
+    const plain = game && !game.live && game.latest.match.cpu && game.latest.match.cpu.upgrades
+      ? " (Claimed cards come without the computer's upgrades.)"
+      : "";
+    resultTextEl.textContent = `Pick one of ${profile.pendingClaim.opponent}'s cards you captured to add to your collection:${plain}`;
     renderClaimChoices();
     againBtn.hidden = true;
     packsLink.hidden = true;
@@ -1092,6 +1137,7 @@ function showPendingClaim() {
   boardEl.hidden = true;
   resultScoreEl.hidden = true;
   resultCoinsEl.hidden = true;
+  resultXpEl.hidden = true;
   resultStrikesEl.hidden = true;
   setStatus("You won your last game!", "");
   showResult("win");

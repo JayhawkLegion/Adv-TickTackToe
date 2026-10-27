@@ -282,6 +282,10 @@ const CardOnline = (() => {
       return (await call("claimCard", { cardId })).owned;
     },
 
+    async upgradeCard(copyUid, side) {
+      return (await call("upgradeCard", { copyUid, side })).owned;
+    },
+
     async startCpuMatch(uids, deckId = null) {
       return (await call("startCpuMatch", { uids, deckId })).matchId;
     },

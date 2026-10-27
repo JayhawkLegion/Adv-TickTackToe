@@ -210,6 +210,22 @@ exports.openPack = onCall(async (req) => {
   });
 });
 
+// Raises one side of a copy by 1, using duplicates of the card. Not while a
+// game is under way, since the copies might be in it.
+exports.upgradeCard = onCall(async (req) => {
+  const uid = needUid(req);
+  const { copyUid, side } = req.data || {};
+  const pool = await getPool();
+  return db.runTransaction(async (tx) => {
+    const profile = await needProfile(tx, uid);
+    if (await activeMatchId(tx, profile)) fail("failed-precondition", "Finish your game before upgrading cards.");
+    const upgraded = CardRules.upgradeCopy(pool, profile.data, copyUid, side);
+    if (upgraded.error) fail("failed-precondition", upgraded.error);
+    writeProfile(tx, profile);
+    return { owned: upgraded.owned, used: upgraded.used };
+  });
+});
+
 exports.claimCard = onCall(async (req) => {
   const uid = needUid(req);
   return db.runTransaction(async (tx) => {
@@ -234,12 +250,15 @@ exports.startCpuMatch = onCall(async (req) => {
     const hand = needHand(pool, profile.data, uids);
     const now = Date.now();
     const ref = matches.doc();
-    const cpuHand = CardRules.randomCards(pool, CardRules.HAND_SIZE).map((cardId) => ({ uid: newId("x_"), cardId }));
+    // The computer mirrors the hand (never stronger cards), upgraded for the
+    // player's level.
+    const cpu = CardRules.cpuDifficulty(CardRules.levelFor(profile.data.xp));
     const state = CardRules.newMatch({
       id: ref.id,
       mode: "cpu",
       a: { uid, name: profile.data.name, hand },
-      b: { uid: "cpu", name: CardRules.randomItem(CardRules.CPU_NAMES), hand: cpuHand },
+      b: { uid: "cpu", name: CardRules.randomItem(CardRules.CPU_NAMES), hand: CardRules.cpuHand(pool, hand, cpu, { newId }) },
+      cpu,
       now,
     });
     CardRules.runCpuTurns(pool, state, { now });
@@ -252,9 +271,10 @@ exports.startCpuMatch = onCall(async (req) => {
 });
 
 // --- Find a Player ---
-// Joining (and each check-in while waiting) pairs the player with whoever
-// has waited longest; otherwise they wait in the queue. Both players' turn
-// order is a coin toss.
+// Joining (and each check-in while waiting) pairs the player with the
+// closest match in level and hand strength among those waiting
+// (CardRules.matchGap, which allows wider gaps the longer anyone waits);
+// otherwise they wait in the queue. Turn order is a coin toss.
 exports.joinQueue = onCall(async (req) => {
   const uid = needUid(req);
   const { uids, deckId } = req.data || {};
@@ -267,10 +287,22 @@ exports.joinQueue = onCall(async (req) => {
     const now = Date.now();
     const mine = await tx.get(queue.doc(uid));
     const waiting = await tx.get(queue.orderBy("createdAt").limit(QUEUE_SCAN));
+    const me = {
+      level: CardRules.levelFor(profile.data.xp),
+      power: CardRules.handPower(pool, hand),
+      since: mine.exists ? mine.data().createdAt : now,
+    };
+    const candidates = waiting.docs
+      .map((doc) => {
+        const entry = doc.data();
+        if (entry.uid === uid || entry.expiresAt < now) return null;
+        const gap = CardRules.matchGap(me, { level: entry.level || 1, power: entry.power || 0, since: entry.createdAt }, now);
+        return gap === null ? null : { doc, entry, gap };
+      })
+      .filter(Boolean)
+      .sort((x, y) => x.gap - y.gap || x.entry.createdAt - y.entry.createdAt);
 
-    for (const doc of waiting.docs) {
-      const entry = doc.data();
-      if (entry.uid === uid || entry.expiresAt < now) continue;
+    for (const { doc, entry } of candidates) {
       const other = await readProfile(tx, entry.uid);
       const otherHand = other.data && CardRules.validateHand(pool, other.data, entry.hand.map((c) => c.uid));
       if (!otherHand || other.data.activeMatch) continue;
@@ -295,7 +327,9 @@ exports.joinQueue = onCall(async (req) => {
     tx.set(queue.doc(uid), {
       uid,
       hand,
-      createdAt: mine.exists ? mine.data().createdAt : now,
+      level: me.level,
+      power: me.power,
+      createdAt: me.since,
       expiresAt: now + QUEUE_TTL_MS,
     });
     Object.assign(profile.data, { lastHand: [...uids], lastDeckId: cleanDeckId(deckId) });

@@ -59,7 +59,15 @@
       <p id="closeupMeta" class="cc-closeup-meta"></p>
       <dl id="closeupStats" class="cc-closeup-stats"></dl>
       <p id="closeupNote" class="settings-hint"></p>
-      <button id="closeupClose" type="button" class="reset-btn">Close</button>
+      <section id="upgradeBox" class="cc-upgrade" hidden>
+        <h3 class="cc-upgrade-title">Upgrade a copy</h3>
+        <p id="upgradeHint" class="settings-hint"></p>
+        <div id="upgradeCopies" class="cc-upgrade-copies" role="group" aria-label="Which copy"></div>
+        <div id="upgradeSides" class="size-options cc-upgrade-sides" role="group" aria-label="Which side"></div>
+        <p id="upgradeCost" class="cc-upgrade-cost"></p>
+        <button id="upgradeBtn" type="button" class="reset-btn">Upgrade</button>
+      </section>
+      <button id="closeupClose" type="button" class="reset-btn cc-secondary">Close</button>
     </div>
   </dialog>
 

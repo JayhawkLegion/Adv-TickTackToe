@@ -117,6 +117,14 @@ const LocalStore = (() => {
       return owned;
     },
 
+    // Raises one side of a copy by 1, using duplicates; returns the copy.
+    async upgradeCard(copyUid, side) {
+      const upgraded = CardRules.upgradeCopy(POOL, needProfile(), copyUid, side);
+      if (upgraded.error) throw new Error(upgraded.error);
+      commit();
+      return upgraded.owned;
+    },
+
     // --- Games ---
     async startCpuMatch(uids, deckId = null) {
       const current = needProfile();
@@ -125,12 +133,14 @@ const LocalStore = (() => {
       current.lastHand = [...uids];
       current.lastDeckId = deckId;
       const id = newId("m_");
-      const cpuHand = randomCards(HAND_SIZE).map((cardId) => ({ uid: newId("x_"), cardId }));
+      // The computer mirrors the hand, upgraded for the player's level.
+      const cpu = CardRules.cpuDifficulty(CardRules.levelFor(current.xp));
       const state = CardRules.newMatch({
         id,
         mode: "cpu",
         a: { uid: "me", name: current.name, hand },
-        b: { uid: "cpu", name: randomItem(CPU_NAMES), hand: cpuHand },
+        b: { uid: "cpu", name: randomItem(CPU_NAMES), hand: CardRules.cpuHand(POOL, hand, cpu, { newId }) },
+        cpu,
       });
       CardRules.runCpuTurns(POOL, state);
       matches[id] = { state, settlement: null, listeners: [] };

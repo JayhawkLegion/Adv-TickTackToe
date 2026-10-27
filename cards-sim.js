@@ -5,6 +5,7 @@
 const watchStatusEl = document.getElementById("watchStatus");
 const runStatusEl = document.getElementById("runStatus");
 const youCardsEl = document.getElementById("youCards");
+const oppLevelEl = document.getElementById("oppLevel");
 const youStyleEl = document.getElementById("youStyle");
 const oppStyleEl = document.getElementById("oppStyle");
 const firstSideEl = document.getElementById("firstSide");
@@ -62,11 +63,20 @@ function other(side) {
 }
 
 // --- Setup ---
+// Hands are lists of { cardId, boost } (boost: an owned copy's upgrades).
+function handOf(copies) {
+  return copies.map((o) => ({ cardId: o.cardId, ...(o.boost ? { boost: o.boost } : {}) }));
+}
+
+function copiesFor(uids) {
+  const byUid = new Map(playableCollection(player).map((owned) => [owned.uid, owned]));
+  return uids.map((uid) => byUid.get(uid)).filter(Boolean);
+}
+
 function savedHand() {
   if (!player) return null;
-  const byUid = Object.fromEntries(playableCollection(player).map((owned) => [owned.uid, owned.cardId]));
-  const hand = player.lastHand.map((uid) => byUid[uid]).filter(Boolean);
-  return hand.length === HAND_SIZE ? hand : null;
+  const copies = copiesFor(player.lastHand);
+  return copies.length === HAND_SIZE ? handOf(copies) : null;
 }
 
 // The fixed hand for "My saved hand" or one of the player's saved decks
@@ -76,9 +86,26 @@ function fixedHand() {
   if (value === "saved") return savedHand();
   if (value.startsWith("deck:")) {
     const deck = player.decks.find((d) => d.id === value.slice(5));
-    return deck ? deckCardIds(player, deck) : null;
+    return deck && deckCardIds(player, deck) ? handOf(copiesFor(deck.uids)) : null;
   }
   return null;
+}
+
+// "random", or the level whose computer opponent to play (like the game).
+function opponentLevel() {
+  return oppLevelEl.value === "random" ? null : Number(oppLevelEl.value);
+}
+
+function setupLevels() {
+  const mine = player ? levelInfo(player.xp).level : 1;
+  const levels = [...new Set([1, 3, 5, 10, 15, 20, 30, mine])].sort((a, b) => a - b);
+  const current = oppLevelEl.value;
+  oppLevelEl.innerHTML = "";
+  levels.forEach((level) => {
+    oppLevelEl.add(new Option(`Like the game: level ${level}${level === mine && player ? " (yours)" : ""}`, String(level)));
+  });
+  oppLevelEl.add(new Option("Random cards from the pool", "random"));
+  oppLevelEl.value = current && [...oppLevelEl.options].some((o) => o.value === current) ? current : String(mine);
 }
 
 function setupOptions() {
@@ -96,6 +123,7 @@ function setupOptions() {
     decks.forEach((deck) => group.append(new Option(`Deck: ${deck.name}`, `deck:${deck.id}`)));
     youCardsEl.append(group);
   }
+  setupLevels();
   renderSavedHand();
 }
 
@@ -103,10 +131,10 @@ function renderSavedHand() {
   const hand = fixedHand();
   savedHandEl.hidden = !hand;
   savedHandEl.innerHTML = "";
-  (hand || []).forEach((cardId) => {
+  (hand || []).forEach((card) => {
     const wrap = document.createElement("div");
     wrap.className = "cc-hand-card";
-    wrap.appendChild(createCardEl(cardId));
+    wrap.appendChild(createCardEl(card.cardId, "neutral", { boost: card.boost }));
     savedHandEl.appendChild(wrap);
   });
 }
@@ -125,14 +153,20 @@ function shuffled(list) {
 // The two hands, who goes first and how each side plays, for one game.
 function newSetup() {
   let you = fixedHand();
-  if (you) you = [...you];
-  else if (youCardsEl.value === "collection") you = shuffled(playableCollection(player)).slice(0, HAND_SIZE).map((o) => o.cardId);
-  else you = randomCards(HAND_SIZE);
+  if (!you && youCardsEl.value === "collection") you = handOf(shuffled(playableCollection(player)).slice(0, HAND_SIZE));
+  if (!you) you = randomCards(HAND_SIZE).map((cardId) => ({ cardId }));
   const first = firstSideEl.value === "coin" ? (Math.random() < 0.5 ? "you" : "opp") : firstSideEl.value;
+  // Like the game: the computer mirrors your hand, upgraded for its level.
+  const level = opponentLevel();
+  const difficulty = level ? CardRules.cpuDifficulty(level) : null;
+  const opp = difficulty
+    ? CardRules.cpuHand(POOL, you, difficulty, { newId })
+    : randomCards(HAND_SIZE).map((cardId) => ({ cardId }));
   return {
-    hands: { you: [...you], opp: randomCards(HAND_SIZE) },
+    hands: { you, opp },
     first,
     styles: { you: youStyleEl.value, opp: oppStyleEl.value },
+    mistakes: difficulty ? difficulty.mistakes : 0,
   };
 }
 
@@ -143,7 +177,13 @@ function newGame(setup) {
     color: { [setup.first]: "red", [other(setup.first)]: "blue" },
     turn: setup.first,
     styles: setup.styles,
+    mistakes: setup.mistakes,
   };
+}
+
+// The side's move, with the computer's mistakes for the opponent.
+function pickMove(game, side) {
+  return chooseMove(game.board, game.hands[side], game.color[side], game.styles[side], side === "opp" ? game.mistakes : 0);
 }
 
 // Each side's score, by the game's own scoring rule (CardRules.scoreBoard).
@@ -154,11 +194,11 @@ function scores(game) {
 
 function playTurn(game) {
   const side = game.turn;
-  const move = chooseMove(game.board, game.hands[side], game.color[side], game.styles[side]);
-  const [cardId] = game.hands[side].splice(move.handIndex, 1);
-  const flips = placeCard(game.board, move.slot, cardId, game.color[side]);
+  const move = pickMove(game, side);
+  const [card] = game.hands[side].splice(move.handIndex, 1);
+  const flips = placeCard(game.board, move.slot, card.cardId, game.color[side], card.boost);
   game.turn = other(side);
-  return { side, cardId, slot: move.slot, flips };
+  return { side, cardId: card.cardId, slot: move.slot, flips };
 }
 
 const isOver = (game) => game.board.every(Boolean);
@@ -173,7 +213,7 @@ function renderWatchBoard(placed = null, flipped = []) {
     if (slot) {
       const flipping = flipped.includes(i);
       const before = slot.color === "red" ? "blue" : "red";
-      const card = createCardEl(slot.cardId, flipping ? before : slot.color);
+      const card = createCardEl(slot.cardId, flipping ? before : slot.color, { boost: slot.boost });
       if (i === placed) card.classList.add("cc-placed");
       if (flipping) {
         card.classList.add("cc-flipping");
@@ -190,11 +230,11 @@ function renderWatchHands() {
   [["you", youHandEl], ["opp", oppHandEl]].forEach(([side, handEl]) => {
     handEl.innerHTML = "";
     handEl.classList.toggle("waiting", game.turn !== side || isOver(game));
-    game.hands[side].forEach((cardId, i) => {
+    game.hands[side].forEach((card, i) => {
       const wrap = document.createElement("div");
       wrap.className = "cc-hand-card";
       wrap.classList.toggle("selected", watch.pick && watch.pick.side === side && watch.pick.handIndex === i);
-      wrap.appendChild(createCardEl(cardId, game.color[side]));
+      wrap.appendChild(createCardEl(card.cardId, game.color[side], { boost: card.boost }));
       handEl.appendChild(wrap);
     });
   });
@@ -214,7 +254,8 @@ function startWatch() {
   const { game } = watch;
   watchAreaEl.hidden = false;
   youLabelEl.textContent = `🤖 ${player ? player.name : "You"} (${PLAY_STYLES[game.styles.you]})`;
-  oppLabelEl.textContent = `🤖 Opponent (${PLAY_STYLES[game.styles.opp]})`;
+  const level = opponentLevel();
+  oppLabelEl.textContent = `🤖 Opponent (${PLAY_STYLES[game.styles.opp]}${level ? `, level ${level}` : ""})`;
   youSideEl.dataset.color = game.color.you;
   oppSideEl.dataset.color = game.color.opp;
   renderWatchBoard();
@@ -230,13 +271,13 @@ function startWatch() {
 function watchStep() {
   const { game } = watch;
   const side = game.turn;
-  const move = chooseMove(game.board, game.hands[side], game.color[side], game.styles[side]);
+  const move = pickMove(game, side);
   watch.pick = { side, handIndex: move.handIndex };
   renderWatchHands();
   watch.timer = setTimeout(() => {
-    const cardId = game.hands[side][move.handIndex];
-    game.hands[side].splice(move.handIndex, 1);
-    const flips = placeCard(game.board, move.slot, cardId, game.color[side]);
+    const [card] = game.hands[side].splice(move.handIndex, 1);
+    const { cardId } = card;
+    const flips = placeCard(game.board, move.slot, cardId, game.color[side], card.boost);
     game.turn = other(side);
     watch.pick = null;
     renderWatchBoard(move.slot, flips);
@@ -282,15 +323,13 @@ speedOptionsEl.addEventListener("click", (e) => {
 });
 
 // --- Many games ---
+// The total of a hand's numbers, upgrades included.
 function handStrength(hand) {
-  return hand.reduce((sum, id) => {
-    const card = getCard(id);
-    return sum + SIDES.reduce((s, side) => s + card[side], 0);
-  }, 0);
+  return CardRules.handPower(POOL, hand);
 }
 
 function countRares(hand) {
-  return hand.filter((id) => getCard(id).rarity !== "common").length;
+  return hand.filter((card) => getCard(card.cardId).rarity !== "common").length;
 }
 
 function playWholeGame() {

@@ -59,6 +59,11 @@
         <div class="cc-profile-name">
           <strong id="deckName"></strong>
           <span id="deckRecord" class="cc-muted"></span>
+          <div class="cc-level-row">
+            <span id="deckLevel" class="cc-level"></span>
+            <span id="deckXpBar" class="cc-xp-bar" role="progressbar" aria-valuemin="0"><span></span></span>
+            <span id="deckXp" class="cc-muted cc-xp-text"></span>
+          </div>
           <a id="cloudBadge" href="cards-settings.html" class="cc-cloud-badge" hidden></a>
         </div>
         <div class="cc-profile-links">
@@ -112,6 +117,8 @@
           <li>Win, and you may add a copy of one of your opponent's cards that ended in your color to your collection. Cards you don't have yet are marked NEW.</li>
           <li id="strikeRule"></li>
           <li id="clockRule"></li>
+          <li id="levelRule"></li>
+          <li id="upgradeRule"></li>
           <li id="coinRule"></li>
         </ul>
       </details>
@@ -153,6 +160,7 @@
       <div id="resultPanel" class="cc-result" hidden>
         <p id="resultScore" class="cc-result-score"></p>
         <p id="resultCoins" class="cc-result-coins" hidden></p>
+        <p id="resultXp" class="cc-result-xp" hidden></p>
         <div id="resultStrikes" class="cc-result-strikes" hidden></div>
         <p id="resultText" class="cc-note"></p>
         <div id="claimChoices" class="cc-hand" role="group" aria-label="Cards you can claim"></div>

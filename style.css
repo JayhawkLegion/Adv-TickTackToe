@@ -2311,3 +2311,106 @@ div.cc-hand-card {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 18px rgba(192, 132, 252, 0.55),
     inset 0 0 0 3px rgba(255, 255, 255, 0.3);
 }
+
+/* Upgraded numbers: gold, with a soft glow. */
+.cc-num.cc-up {
+  color: #fcd34d;
+  text-shadow: 0 0 4cqw rgba(252, 211, 77, 0.75), 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* Level and XP in the profile bar. */
+.cc-level-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+}
+
+.cc-level {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--win);
+}
+
+.cc-xp-bar {
+  position: relative;
+  width: 4.5rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--cell-hover);
+  overflow: hidden;
+}
+
+.cc-xp-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--win);
+  border-radius: 999px;
+}
+
+.cc-xp-text {
+  font-size: 0.75rem;
+}
+
+.cc-result-xp {
+  margin: -0.3rem 0 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.cc-result-xp.cc-level-up {
+  color: var(--win);
+  font-weight: 800;
+}
+
+/* Upgrading a copy (collection close-up). */
+.cc-upgrade {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--cell-hover);
+  text-align: left;
+}
+
+.cc-upgrade-title {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+}
+
+.cc-upgrade-copies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.4rem 0;
+}
+
+.cc-upgrade-copies .cc-hand-card {
+  flex: 0 0 3.6rem;
+}
+
+.cc-upgrade-sides {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+  margin: 0.4rem 0;
+}
+
+.cc-upgrade-sides .size-option {
+  padding: 0.5rem 0.3rem;
+  font-size: 0.85rem;
+}
+
+.cc-upgrade-sides .size-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cc-upgrade-cost {
+  margin: 0.2rem 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.cc-upgrade .reset-btn {
+  width: 100%;
+}
