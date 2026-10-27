@@ -20,6 +20,12 @@
   <main class="game">
     <h1>Card Clash Settings</h1>
 
+    <div class="setting-block">
+      <label>Online profile</label>
+      <p id="cloudStatus" class="settings-hint"></p>
+      <div id="cloudActions" class="cc-cloud-actions"></div>
+    </div>
+
     <div id="noPlayer" class="setting-block" hidden>
       <p class="settings-hint">No player yet. Start Card Clash to create one.</p>
     </div>
@@ -56,6 +62,8 @@
 
   <script src="cards-pool.js"></script>
   <script src="cards-data.js"></script>
+  <script src="cards-cloud-config.js"></script>
+  <script src="cards-cloud.js"></script>
   <script src="cards-settings.js"></script>
 </body>
 </html>

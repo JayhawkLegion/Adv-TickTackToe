@@ -39,6 +39,18 @@ const CARD_SAVE_KEY = "cardClashSave";
 const POOL_SAVE_KEY = "cardClashPool";
 const BUILT_IN_BY_ID = Object.fromEntries(BUILT_IN_CARDS.map((card) => [card.id, card]));
 
+// Called after every local save ("profile" or "pool"); the online profile
+// (cards-cloud.js) listens so it can upload changes.
+const SAVE_LISTENERS = [];
+
+function onLocalSave(listener) {
+  SAVE_LISTENERS.push(listener);
+}
+
+function notifySaved(kind) {
+  SAVE_LISTENERS.forEach((listener) => listener(kind));
+}
+
 let CARD_POOL;
 let CARDS_BY_ID;
 let RARITY_CHANCES;
@@ -168,6 +180,7 @@ function savePool(pool, chances, packs = PACKS) {
   const cards = pool.filter((card) => !BUILT_IN_BY_ID[card.id] || !sameCard(card, BUILT_IN_BY_ID[card.id]));
   localStorage.setItem(POOL_SAVE_KEY, JSON.stringify({ cards: cards.map(cleanCard), chances, packs: packs.map(cleanPack) }));
   applyPool(cards, chances, packs);
+  notifySaved("pool");
 }
 
 function loadPool() {
@@ -352,6 +365,7 @@ function loadCardSave() {
 
 function saveCardSave(data) {
   localStorage.setItem(CARD_SAVE_KEY, JSON.stringify(data));
+  notifySaved("profile");
 }
 
 function getCurrentPlayer(data) {

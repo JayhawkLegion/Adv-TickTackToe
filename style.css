@@ -2032,3 +2032,95 @@ div.cc-hand-card {
 .cc-link-btn:hover {
   text-decoration: underline;
 }
+
+/* Online profile: Google sign-in button, status, profile choice */
+.cc-cloud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.cc-google-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #747775;
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem 0.55rem 0.9rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cc-google-btn:hover {
+  background: #f2f2f2;
+}
+
+.cc-google-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.cc-cloud-badge {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.cc-cloud-badge:hover {
+  color: var(--text);
+}
+
+.cc-setup-cloud {
+  margin-top: 1rem;
+}
+
+.cc-setup-cloud .cc-cloud-actions {
+  justify-content: center;
+}
+
+.cc-or {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 0.6rem;
+}
+
+.cc-or::before,
+.cc-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--cell-hover);
+}
+
+.cc-choose .cc-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border: 2px solid transparent;
+  border-radius: 0.7rem;
+  background: var(--cell);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cc-choose .cc-choice:hover {
+  border-color: var(--accent);
+}
+
+.cc-choose .cc-choice span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}

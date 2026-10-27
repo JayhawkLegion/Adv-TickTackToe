@@ -1,4 +1,4 @@
-const CACHE_NAME = "tic-tac-toe-v13";
+const CACHE_NAME = "tic-tac-toe-v14";
 const ASSETS = [
   "./",
   "./index.html",
@@ -24,6 +24,8 @@ const ASSETS = [
   "./connect4-settings.js",
   "./cards-pool.js",
   "./cards-data.js",
+  "./cards-cloud-config.js",
+  "./cards-cloud.js",
   "./cards.js",
   "./cards-collection.js",
   "./cards-settings.js",
@@ -55,6 +57,23 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  // Sign-in and online saves (Firebase) go straight to the network.
+  if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
+  // The online-profile config is checked online first, so pasting it in takes
+  // effect without a new cache version; the cached copy covers offline.
+  if (url.pathname.endsWith("/cards-cloud-config.js")) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );

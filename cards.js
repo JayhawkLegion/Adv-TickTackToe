@@ -88,6 +88,36 @@ document.getElementById("coinRule").textContent =
   `Every game earns coins: ${COIN_REWARDS.win} for a win, ${COIN_REWARDS.draw} for a draw, ` +
   `${COIN_REWARDS.loss} for a loss. Spend them on card packs.`;
 
+// --- Online profile ---
+const setupCloudEl = document.getElementById("setupCloud");
+const setupCloudTextEl = document.getElementById("setupCloudText");
+const setupCloudActionsEl = document.getElementById("setupCloudActions");
+const cloudBadgeEl = document.getElementById("cloudBadge");
+
+// A download from another device waits while a game is on screen.
+CardCloud.isBusy = () => Boolean(game);
+
+CardCloud.subscribe((s) => {
+  cloudBadgeEl.hidden = !s.enabled;
+  cloudBadgeEl.textContent = s.user ? `☁️ ${cloudStatusText(s)}` : "☁️ Sign in to save online";
+
+  // New device: offer to load the profile from another device instead.
+  setupCloudEl.hidden = !s.enabled;
+  setupCloudActionsEl.innerHTML = "";
+  if (s.user) {
+    // "saved" with no player here means the account has no profile online yet.
+    setupCloudTextEl.textContent = s.status === "saved"
+      ? `Signed in as ${s.user.name || s.user.email}. No profile online yet, so pick a name to start one.`
+      : `Signed in as ${s.user.name || s.user.email}. ${cloudStatusText(s)}`;
+    if (!nameInput.value && s.user.name) nameInput.value = s.user.name.split(" ")[0];
+  } else {
+    setupCloudTextEl.textContent = "Played on another device? Sign in to load your profile.";
+    const btn = googleSignInButton();
+    btn.disabled = s.status === "starting";
+    setupCloudActionsEl.append(btn);
+  }
+});
+
 // --- New player ---
 function showSetup() {
   showView("setup");
@@ -629,6 +659,8 @@ claimBtn.addEventListener("click", () => {
 againBtn.addEventListener("click", () => {
   game = null;
   showDeck();
+  // Pick up anything another device saved while this game was on.
+  if (CardCloud.state().user) CardCloud.syncNow();
 });
 
 // A win whose reward wasn't picked yet (e.g. the page was reloaded) is shown

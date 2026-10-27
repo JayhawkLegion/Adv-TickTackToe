@@ -46,6 +46,11 @@
         <input id="nameInput" class="cc-input" type="text" maxlength="20" placeholder="Your name" autocomplete="off" required>
         <button type="submit" class="reset-btn">Start</button>
       </form>
+      <div id="setupCloud" class="cc-setup-cloud" hidden>
+        <p class="cc-or"><span>or</span></p>
+        <p id="setupCloudText" class="settings-hint"></p>
+        <div id="setupCloudActions" class="cc-cloud-actions"></div>
+      </div>
     </section>
 
     <!-- Choose a hand -->
@@ -54,6 +59,7 @@
         <div class="cc-profile-name">
           <strong id="deckName"></strong>
           <span id="deckRecord" class="cc-muted"></span>
+          <a id="cloudBadge" href="cards-settings.html" class="cc-cloud-badge" hidden></a>
         </div>
         <div class="cc-profile-links">
           <a href="cards-packs.html" class="cc-link">🪙 <span id="deckCoins">0</span> · Packs</a>
@@ -136,6 +142,8 @@
   <script src="menu.js"></script>
   <script src="cards-pool.js"></script>
   <script src="cards-data.js"></script>
+  <script src="cards-cloud-config.js"></script>
+  <script src="cards-cloud.js"></script>
   <script src="cards.js"></script>
 </body>
 </html>
