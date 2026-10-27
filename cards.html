@@ -76,6 +76,14 @@
       <!-- Pick individual cards -->
       <div id="cardsTab" role="tabpanel">
         <p id="editingNote" class="cc-notice" hidden></p>
+        <div class="cc-pick-tools">
+          <div id="rarityFilter" class="size-options cc-filter" role="group" aria-label="Show cards of rarity"></div>
+          <select id="sortSelect" class="cc-select cc-sort" aria-label="Sort cards">
+            <option value="number">Card number</option>
+            <option value="strength">Strongest first</option>
+            <option value="rarity">Rarest first</option>
+          </select>
+        </div>
         <div id="deckGrid" class="cc-grid" role="group" aria-label="Your collection"></div>
         <div id="saveDeckRow" class="cc-save-deck" hidden>
           <input id="deckNameInput" class="cc-input" type="text" maxlength="20" autocomplete="off" aria-label="Deck name">

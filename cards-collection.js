@@ -9,6 +9,7 @@ const statsGridEl = document.getElementById("statsGrid");
 const collectionGroupsEl = document.getElementById("collectionGroups");
 const showMissingEl = document.getElementById("showMissing");
 const groupByEl = document.getElementById("groupBy");
+const rarityFilterEl = document.getElementById("rarityFilter");
 const cardDialog = document.getElementById("cardDialog");
 const closeupCardEl = document.getElementById("closeupCard");
 const closeupTitleEl = document.getElementById("closeupTitle");
@@ -60,20 +61,48 @@ function renderStats() {
 }
 
 let groupBy = "set";
+let rarityFilter = "all";
+
+// "All" plus each rarity the pool has cards of.
+function renderRarityFilter() {
+  const rarities = raritiesOf(CARD_POOL);
+  if (!rarities.includes(rarityFilter)) rarityFilter = "all";
+  rarityFilterEl.innerHTML = "";
+  ["all", ...rarities].forEach((r) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "size-option";
+    btn.dataset.rarity = r;
+    btn.textContent = r === "all" ? "All rarities" : RARITIES[r].label;
+    if (r !== "all") btn.style.setProperty("--rarity-color", RARITIES[r].color);
+    btn.classList.toggle("selected", r === rarityFilter);
+    btn.setAttribute("aria-pressed", String(r === rarityFilter));
+    rarityFilterEl.appendChild(btn);
+  });
+}
+
+rarityFilterEl.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-rarity]");
+  if (!btn) return;
+  rarityFilter = btn.dataset.rarity;
+  renderRarityFilter();
+  renderCollection();
+});
 
 // The groups the collection is shown in: each set (and "Other" for cards
 // without one), or each rarity.
 function collectionGroups() {
+  const pool = rarityFilter === "all" ? CARD_POOL : CARD_POOL.filter((card) => card.rarity === rarityFilter);
   if (groupBy === "rarity") {
     return RARITY_ORDER.map((r) => ({
       label: RARITIES[r].label,
       color: RARITIES[r].color,
-      cards: CARD_POOL.filter((card) => card.rarity === r),
+      cards: pool.filter((card) => card.rarity === r),
     }));
   }
   return [...CARD_SETS, OTHER_SET].map((set) => ({
     label: `${set.icon} ${set.name}`,
-    cards: CARD_POOL.filter((card) => cardSet(card).id === set.id),
+    cards: pool.filter((card) => cardSet(card).id === set.id),
   }));
 }
 
@@ -287,6 +316,7 @@ CardStore.onProfile((next) => {
   const unique = new Set(collection.map((c) => c.cardId)).size;
   summaryEl.textContent = `${collection.length} cards · ${unique} of ${CARD_POOL.length} types found`;
   renderStats();
+  renderRarityFilter();
   renderCollection();
   renderHistory();
 });

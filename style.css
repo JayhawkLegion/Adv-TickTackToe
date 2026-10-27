@@ -830,6 +830,44 @@ h1 {
   box-shadow: 0 0 0 1.5cqw rgba(0, 0, 0, 0.35), 0 0 6cqw var(--rarity-color);
 }
 
+/* Epic cards stand out from rares: a faceted violet gem with a sparkle, a
+   violet-to-pink gradient border, and in play (where the border shows the
+   player's color) a violet inner ring. */
+.cc-card[data-rarity="epic"] {
+  border-color: transparent;
+  background:
+    linear-gradient(160deg, #4f3f78, #2a2340) padding-box,
+    linear-gradient(135deg, #f0abfc, #c084fc 45%, #7c3aed) border-box;
+}
+
+.cc-card[data-rarity="epic"].red {
+  border-color: var(--red-color);
+  background: linear-gradient(160deg, #c2414b, #6b1d26);
+}
+
+.cc-card[data-rarity="epic"].blue {
+  border-color: var(--blue-color);
+  background: linear-gradient(160deg, #3c6fd8, #1b326e);
+}
+
+.cc-card[data-rarity="epic"].red::after,
+.cc-card[data-rarity="epic"].blue::after {
+  content: "";
+  position: absolute;
+  inset: 3cqw;
+  border: 1.5px solid #e9c2ff;
+  border-radius: 9%;
+  box-shadow: 0 0 4cqw rgba(192, 132, 252, 0.6);
+  pointer-events: none;
+}
+
+.cc-card[data-rarity="epic"] .cc-gem {
+  width: 14cqw;
+  height: 14cqw;
+  background: linear-gradient(135deg, #fdf4ff 0%, #f0abfc 30%, #c084fc 60%, #7c3aed 100%);
+  box-shadow: 0 0 0 1.5cqw rgba(0, 0, 0, 0.35), 0 0 8cqw #e879f9;
+}
+
 @container (max-width: 90px) {
   .cc-name {
     display: none;
@@ -1690,6 +1728,7 @@ div.cc-hand-card {
 
 .cc-pack-cards {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 0.6rem;
   margin: 0.4rem 0 0.6rem;
@@ -2215,4 +2254,60 @@ div.cc-hand-card {
 /* Claim choices can carry a NEW tag in the corner. */
 #claimChoices .cc-hand-card {
   position: relative;
+}
+
+/* Rarity filter chips (hand picker, collection): smaller than the main
+   options, each rarity's chip edged in its color. */
+.cc-filter {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.cc-filter .size-option {
+  flex: 0 1 auto;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  border-radius: 999px;
+}
+
+.cc-filter .size-option[style*="--rarity-color"] {
+  box-shadow: inset 0 -2px 0 var(--rarity-color);
+}
+
+.cc-filter .size-option.selected[style*="--rarity-color"] {
+  border-color: var(--rarity-color);
+}
+
+.cc-pick-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.4rem 0.6rem;
+}
+
+.cc-pick-tools .cc-filter {
+  margin-bottom: 0;
+}
+
+.cc-sort {
+  width: auto;
+  margin-left: auto;
+  margin-bottom: 0.6rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* The pack shop: one offer per pack, side by side when there's room. */
+.cc-pack-offers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 1.2rem;
+}
+
+.cc-pack-art[data-pack="apex"] {
+  background: linear-gradient(155deg, #f0abfc 0%, #c084fc 35%, #7c3aed 70%, #3b1a6e 100%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 18px rgba(192, 132, 252, 0.55),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.3);
 }

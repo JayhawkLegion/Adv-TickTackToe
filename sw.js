@@ -1,4 +1,4 @@
-const CACHE_NAME = "tic-tac-toe-v15";
+const CACHE_NAME = "tic-tac-toe-v16";
 const ASSETS = [
   "./",
   "./index.html",

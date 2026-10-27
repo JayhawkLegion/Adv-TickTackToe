@@ -6,7 +6,8 @@ Run from the repo root:  python3 tools/generate_card_pool.py
 Each rarity is every combination of four side numbers (left, top, right,
 bottom) allowed by its rule. Cards are numbered from weakest to strongest by
 the total of their sides (ties in left-top-right-bottom order), commons first,
-then rares, and given animals ranked from weakest to strongest to match.
+then rares, then epics, and given animals ranked from weakest to strongest to
+match.
 
 A card's id comes from its rarity and sides (e.g. "rare-4-1-1-1"), so animals
 and names can be reshuffled here without changing which cards players own.
@@ -15,7 +16,7 @@ from itertools import product
 from pathlib import Path
 
 # Every animal, weakest to strongest. Dragons, unicorns, dinosaurs, the mammoth
-# and the dodo are left out on purpose: they're kept for epic and legendary.
+# and the dodo are left out on purpose: they're kept for legendary cards.
 ANIMALS = [
     ("Worm", "🪱"), ("Ant", "🐜"), ("Fly", "🪰"), ("Mosquito", "🦟"), ("Ladybug", "🐞"),
     ("Caterpillar", "🐛"), ("Snail", "🐌"), ("Cricket", "🦗"), ("Cockroach", "🪳"), ("Beetle", "🪲"),
@@ -39,7 +40,8 @@ ANIMALS = [
 ]
 
 # Themed sets for the collection binder. Every animal belongs to exactly one
-# set, and so do all of its cards (its common card and its rare versions).
+# set, and so do all of its cards (its common card and its rare and epic
+# versions), so every set has cards of every rarity.
 SETS = [
     ("bugs", "Bugs", "🐞", ["Worm", "Ant", "Fly", "Mosquito", "Ladybug", "Caterpillar", "Snail", "Cricket",
                           "Cockroach", "Beetle", "Butterfly", "Bee", "Spider", "Scorpion"]),
@@ -61,6 +63,9 @@ SET_OF = {animal: set_id for set_id, _, _, animals in SETS for animal in animals
 # Rare cards reuse animals, so each gets a title, weakest to strongest within
 # that animal's cards ("Wild Wolf" ... "Royal Wolf").
 RARE_TITLES = ["Wild", "Swift", "Shadow", "Golden", "Royal", "Ancient"]
+# Epic versions likewise ("Mystic Wolf" ... "Cosmic Wolf").
+EPIC_TITLES = ["Mystic", "Storm", "Crystal", "Titan", "Cosmic"]
+NAME_LENGTH = 20  # the longest name a card can have (as in the Card Builder)
 
 # Built-in card ids from before ids were based on sides, mapped to their
 # sides, so cards players already own carry over.
@@ -98,6 +103,12 @@ def rare_rule(sides):
     return max(sides) >= 4 and sum(sides) <= 15
 
 
+def epic_rule(sides):
+    # Must use a 6 (higher than any rare's side) and total 16 to 20 (more than
+    # any rare's total), so every epic outranks every rare on both counts.
+    return 6 in sides and 16 <= sum(sides) <= 20
+
+
 def strength_order(rule, top_value):
     combos = [c for c in product(range(1, top_value + 1), repeat=4) if rule(c)]
     return sorted(combos, key=lambda c: (sum(c), c))
@@ -130,11 +141,22 @@ def build():
 
     rares = strength_order(rare_rule, 5)
     for group, (name, icon) in zip(split_evenly(rares, len(ANIMALS)), ANIMALS):
+        assert len(group) <= len(RARE_TITLES)
         for title, sides in zip(RARE_TITLES, group):
             cards.append(("rare", sides, f"{title} {name}", icon, SET_OF[name]))
 
-    assert len(commons) == 81 and len(cards) == 81 + len(rares)
+    epics = strength_order(epic_rule, 6)
+    for group, (name, icon) in zip(split_evenly(epics, len(ANIMALS)), ANIMALS):
+        assert 1 <= len(group) <= len(EPIC_TITLES)
+        for title, sides in zip(EPIC_TITLES, group):
+            cards.append(("epic", sides, f"{title} {name}", icon, SET_OF[name]))
+
+    assert len(commons) == 81 and len(cards) == 81 + len(rares) + len(epics)
     assert len({c[2] for c in cards}) == len(cards), "names must be unique"
+    assert all(len(c[2]) <= NAME_LENGTH for c in cards), "names must fit the Card Builder"
+    for set_id, set_name, _, _ in SETS:
+        for rarity in ("common", "rare", "epic"):
+            assert any(c[4] == set_id and c[0] == rarity for c in cards), f"{set_name} needs a {rarity} card"
     return cards
 
 
@@ -156,6 +178,7 @@ def write(cards):
 //
 // Commons: every combination of 1-3 on the four sides ({sum(c[0] == "common" for c in cards)} cards).
 // Rares: sides 1-5 using at least one 4 or 5, totalling 15 or less ({sum(c[0] == "rare" for c in cards)} cards).
+// Epics: sides 1-6 using at least one 6, totalling 16 to 20 ({sum(c[0] == "epic" for c in cards)} cards).
 // Numbered weakest to strongest by side total within each rarity, with
 // animals picked to match. Cards built in the Card Builder, and edits to
 // these, are merged on top by CardRules.buildPool (cards-rules.js).

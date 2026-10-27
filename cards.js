@@ -33,6 +33,8 @@ const deckRecordEl = document.getElementById("deckRecord");
 const deckCoinsEl = document.getElementById("deckCoins");
 const deckNoticeEl = document.getElementById("deckNotice");
 const deckGridEl = document.getElementById("deckGrid");
+const rarityFilterEl = document.getElementById("rarityFilter");
+const sortSelect = document.getElementById("sortSelect");
 const pickTabsEl = document.getElementById("pickTabs");
 const cardsTabEl = document.getElementById("cardsTab");
 const decksTabEl = document.getElementById("decksTab");
@@ -82,6 +84,8 @@ let selectedUids = []; // cards picked for the next hand
 let pickTab = "cards"; // "cards" or "decks"
 let selectedDeckId = null; // saved deck chosen for the next hand
 let editingDeckId = null; // saved deck being changed on the Cards tab
+let rarityFilter = "all"; // which of the player's cards the Cards tab shows
+let cardSort = "number"; // see CARD_SORTS
 let queue = null; // looking for a player: { hand, started, tick, ping }
 let game = null; // the match on screen (see openMatch)
 let claimPick = null;
@@ -235,8 +239,10 @@ function renderDeck() {
     renderSavedDecks();
     return;
   }
+  renderRarityFilter();
   deckGridEl.innerHTML = "";
-  sortedCollection(profile).forEach((owned) => {
+  sortedCollection(profile, cardSort).forEach((owned) => {
+    if (rarityFilter !== "all" && getCard(owned.cardId).rarity !== rarityFilter) return;
     const btn = document.createElement("button");
     btn.className = "cc-pick";
     btn.dataset.uid = owned.uid;
@@ -267,6 +273,38 @@ function renderDeck() {
   }
   updatePlayButtons();
 }
+
+// Filter chips for the rarities the player owns ("All" plus each), shown
+// once there's more than one. Picked cards stay picked while filtered out.
+function renderRarityFilter() {
+  const owned = raritiesOf(playableCollection(profile).map((o) => getCard(o.cardId)));
+  if (!owned.includes(rarityFilter)) rarityFilter = "all";
+  rarityFilterEl.hidden = owned.length < 2;
+  rarityFilterEl.innerHTML = "";
+  ["all", ...owned].forEach((r) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "size-option";
+    btn.dataset.rarity = r;
+    btn.textContent = r === "all" ? "All" : RARITIES[r].label;
+    if (r !== "all") btn.style.setProperty("--rarity-color", RARITIES[r].color);
+    btn.classList.toggle("selected", r === rarityFilter);
+    btn.setAttribute("aria-pressed", String(r === rarityFilter));
+    rarityFilterEl.appendChild(btn);
+  });
+}
+
+rarityFilterEl.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-rarity]");
+  if (!btn) return;
+  rarityFilter = btn.dataset.rarity;
+  renderDeck();
+});
+
+sortSelect.addEventListener("change", () => {
+  cardSort = sortSelect.value;
+  renderDeck();
+});
 
 // The hand to play with: { uids, deckId }, or null if none is ready.
 function chosenHand() {
@@ -312,8 +350,8 @@ function renderSavedDecks() {
     if (ids) {
       const cards = ids.map(getCard);
       const strength = cards.reduce((sum, card) => sum + cardTotal(card), 0);
-      const rares = cards.filter((card) => card.rarity !== "common").length;
-      info.textContent = `Strength ${strength}${rares ? ` · ${rares} rare+` : ""}`;
+      const better = rarityCounts(cards);
+      info.textContent = `Strength ${strength}${better ? ` · ${better}` : ""}`;
     } else {
       info.textContent = "A card in this deck is missing";
     }

@@ -176,9 +176,16 @@ chanceForm.addEventListener("submit", (e) => {
 // --- Pack settings ---
 for (let n = 1; n <= PACK_LIMITS.maxSize; n++) packSizeInput.add(new Option(n, n));
 
+// The pack being edited (an id from PACKS); tabs above the form switch it.
+let packId = PACKS[0].id;
+
+function currentPack() {
+  return PACKS.find((p) => p.id === packId) || PACKS[0];
+}
+
 function readPack() {
   return {
-    ...PACKS[0],
+    ...currentPack(),
     name: packNameInput.value.trim(),
     price: Number(packPriceInput.value),
     size: Number(packSizeInput.value),
@@ -211,16 +218,42 @@ function updatePackForm() {
   }
 }
 
-const packOddsEditor = oddsEditor(packOddsTableEl, packOddsTotalEl, () => PACKS[0].odds, () => {
+const packOddsEditor = oddsEditor(packOddsTableEl, packOddsTotalEl, () => currentPack().odds, () => {
   if (packNameInput.value || packPriceInput.value) updatePackForm();
 });
 
+const packTabsEl = document.getElementById("packTabs");
+
+function renderPackTabs() {
+  packTabsEl.innerHTML = "";
+  PACKS.forEach((p) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "size-option";
+    btn.dataset.pack = p.id;
+    btn.textContent = p.name;
+    btn.classList.toggle("selected", p.id === packId);
+    btn.setAttribute("aria-pressed", String(p.id === packId));
+    packTabsEl.appendChild(btn);
+  });
+}
+
+packTabsEl.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-pack]");
+  if (!btn || btn.disabled) return;
+  packId = btn.dataset.pack;
+  showPack(currentPack());
+});
+
 function showPack(pack) {
+  packId = pack.id;
+  renderPackTabs();
   packNameInput.value = pack.name;
   packPriceInput.value = pack.price;
   packSizeInput.value = pack.size;
   packOddsEditor.show(pack.odds);
   updatePackForm();
+  if (online) applyAccess();
 }
 
 [packNameInput, packPriceInput, packSizeInput].forEach((el) => {
@@ -231,8 +264,9 @@ packForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const pack = readPack();
   if (!isValidPack(pack)) return;
-  save(CARD_POOL, RARITY_CHANCES, [pack, ...PACKS.slice(1)], `Saved the ${pack.name}: ${pack.size} cards for ${pack.price} coins.`);
-  showPack(PACKS[0]);
+  save(CARD_POOL, RARITY_CHANCES, PACKS.map((p) => (p.id === pack.id ? pack : p)),
+    `Saved the ${pack.name}: ${pack.size} cards for ${pack.price} coins.`);
+  showPack(currentPack());
 });
 
 // --- Building and editing cards ---
@@ -519,7 +553,7 @@ importFile.addEventListener("change", async () => {
   save(Object.values(byId), chances, packs,
     `Imported ${added} new and ${updated} updated cards${skipped ? `; skipped ${skipped} invalid` : ""}.`);
   chanceEditor.show(RARITY_CHANCES);
-  showPack(PACKS[0]);
+  showPack(currentPack());
   loadForm(null);
 });
 
@@ -540,7 +574,7 @@ poolRarityEl.append(rarityGroup, setGroup);
 setSelect.add(new Option("No set (Other)", ""));
 CARD_SETS.forEach((set) => setSelect.add(new Option(`${set.icon} ${set.name}`, set.id)));
 chanceEditor.show(RARITY_CHANCES);
-showPack(PACKS[0]);
+showPack(currentPack());
 loadForm(null);
 
 // --- Online: the shared pool ---
@@ -555,7 +589,8 @@ function applyAccess() {
   if (readOnly || wasReadOnly) {
     document.querySelectorAll("#chanceForm, #packForm, #cardForm").forEach((form) => {
       [...form.elements].forEach((el) => {
-        el.disabled = readOnly;
+        // The pack tabs stay usable so every pack's settings can be seen.
+        if (!el.dataset.pack) el.disabled = readOnly;
       });
     });
     importBtn.disabled = readOnly;
@@ -564,7 +599,7 @@ function applyAccess() {
   wasReadOnly = readOnly;
   if (opened) {
     chanceEditor.show(RARITY_CHANCES);
-    showPack(PACKS[0]);
+    showPack(currentPack());
     loadForm(null);
   }
 }

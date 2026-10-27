@@ -102,10 +102,8 @@ function playableCollection(profile) {
   return CardRules.playableCollection(POOL, profile);
 }
 
-function sortedCollection(profile) {
-  return playableCollection(profile).sort(
-    (a, b) => getCard(a.cardId).no - getCard(b.cardId).no || a.acquiredAt - b.acquiredAt
-  );
+function sortedCollection(profile, sort = "number") {
+  return sortCopies(playableCollection(profile), sort);
 }
 
 // The deck's card ids, or null if any of its copies is no longer playable.
@@ -115,6 +113,37 @@ function deckCardIds(profile, deck) {
 
 function nextDeckName(profile) {
   return CardRules.nextDeckName(profile);
+}
+
+// Card sort orders for pickers: "number" (the catalog's order: rarity, then
+// weakest to strongest), "strength" (side total, strongest first) or "rarity"
+// (rarest first, then strongest).
+const CARD_SORTS = {
+  number: (a, b) => a.no - b.no,
+  strength: (a, b) => cardTotal(b) - cardTotal(a) || a.no - b.no,
+  rarity: (a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || cardTotal(b) - cardTotal(a) || a.no - b.no,
+};
+
+// Owned copies of cards in the pool, sorted (see CARD_SORTS); copies of the
+// same card stay in the order they were found.
+function sortCopies(copies, sort = "number") {
+  const order = CARD_SORTS[sort] || CARD_SORTS.number;
+  return [...copies].sort((a, b) => order(getCard(a.cardId), getCard(b.cardId)) || a.acquiredAt - b.acquiredAt);
+}
+
+// Rarities present among some cards, rarest last ("common", "rare", "epic").
+function raritiesOf(cards) {
+  return RARITY_ORDER.filter((r) => cards.some((card) => card.rarity === r));
+}
+
+// "1 epic · 2 rare" for the cards above common, or "".
+function rarityCounts(cards) {
+  return RARITY_ORDER.slice(1)
+    .reverse()
+    .map((r) => [r, cards.filter((card) => card.rarity === r).length])
+    .filter(([, n]) => n)
+    .map(([r, n]) => `${n} ${RARITIES[r].label.toLowerCase()}`)
+    .join(" · ");
 }
 
 // Card ids the player owns at least one copy of.

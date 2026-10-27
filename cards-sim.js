@@ -429,7 +429,7 @@ function showResults(t, describe) {
   strengthNoteEl.textContent =
     `Hand strength is the total of all the numbers on a hand's 5 cards. ` +
     `Average: your side ${(t.strength.you / t.games).toFixed(1)}, opponent ${(t.strength.opp / t.games).toFixed(1)}. ` +
-    `Rare cards per hand: your side ${(t.rares.you / t.games).toFixed(2)}, opponent ${(t.rares.opp / t.games).toFixed(2)}.`;
+    `Rare-or-better cards per hand: your side ${(t.rares.you / t.games).toFixed(2)}, opponent ${(t.rares.opp / t.games).toFixed(2)}.`;
 }
 
 countOptionsEl.addEventListener("click", (e) => {

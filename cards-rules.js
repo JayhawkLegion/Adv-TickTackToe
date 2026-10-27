@@ -19,7 +19,9 @@ const CardRules = (() => {
   };
   // Chance (%) that a randomly drawn card (starter cards, the computer's
   // hand) is of each rarity. Adjustable in the Card Builder; totals 100.
-  const DEFAULT_RARITY_CHANCES = { common: 70, rare: 20, epic: 8, legendary: 2 };
+  // Epics come from the Apex Pack (and from beating players who own them),
+  // so random draws are common and rare only.
+  const DEFAULT_RARITY_CHANCES = { common: 78, rare: 22, epic: 0, legendary: 0 };
 
   const SIDES = ["top", "right", "bottom", "left"];
   const HAND_SIZE = 5;
@@ -52,9 +54,13 @@ const CardRules = (() => {
   // player won 24% and the second 46%; board only is 54% / 46%.)
   const SCORING = "board";
 
-  // Card packs: each card rolls its rarity with the pack's own odds.
+  // Card packs: each card rolls its rarity with the pack's own odds. The
+  // Standard Pack is common and rare only; the Apex Pack adds a 20% epic
+  // chance per card, keeping the Standard Pack's 70:30 common-to-rare mix
+  // for the rest.
   const DEFAULT_PACKS = [
-    { id: "standard", name: "Standard Pack", price: 100, size: 3, odds: { common: 65, rare: 27, epic: 6, legendary: 2 } },
+    { id: "standard", name: "Standard Pack", price: 100, size: 3, odds: { common: 70, rare: 30, epic: 0, legendary: 0 } },
+    { id: "apex", name: "Apex Pack", price: 500, size: 5, odds: { common: 56, rare: 24, epic: 20, legendary: 0 } },
   ];
   const PACK_LIMITS = { nameLength: 24, maxPrice: 100000, maxSize: 10 };
 
