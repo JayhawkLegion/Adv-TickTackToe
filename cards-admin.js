@@ -627,3 +627,5 @@ if (online) {
     applyAccess();
   });
 }
+
+adminOnlyPage();
