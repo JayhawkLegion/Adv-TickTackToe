@@ -4,13 +4,20 @@
 //
 // To switch it on, follow ONLINE-SETUP.md: create the Firebase project, deploy
 // the server (functions/ and firestore.rules), then paste the project's web
-// app config below in place of null.
+// app config below (null switches online play off).
 //
 // The config isn't a secret: it only names the project. The server and the
 // Firestore rules decide who can read or change what.
-const WILDFLIP_FIREBASE_CONFIG = null;
+const WILDFLIP_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDrJOiyhMsX0vE7kQ20utga7SevL6iF32A",
+  authDomain: "wildflip.firebaseapp.com",
+  projectId: "wildflip",
+  storageBucket: "wildflip.firebasestorage.app",
+  messagingSenderId: "436001956988",
+  appId: "1:436001956988:web:85d4e71a7e0803dac755f9",
+};
 
-// It looks like this:
+// The general shape, for reference:
 // const WILDFLIP_FIREBASE_CONFIG = {
 //   apiKey: "AIza...",
 //   authDomain: "your-project.firebaseapp.com",
