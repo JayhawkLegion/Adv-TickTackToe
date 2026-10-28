@@ -36,6 +36,11 @@ function newId(prefix) {
   return prefix + crypto.randomBytes(9).toString("base64url");
 }
 
+// A ping from the game page to wake a sleeping function before it's needed.
+function isWarmUp(req) {
+  return Boolean(req.data && req.data.warm === true);
+}
+
 function needUid(req) {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in to play online.");
   return req.auth.uid;
@@ -239,6 +244,7 @@ exports.claimCard = onCall(async (req) => {
 
 // --- Games against the computer ---
 exports.startCpuMatch = onCall(async (req) => {
+  if (isWarmUp(req)) return { warm: true };
   const uid = needUid(req);
   const { uids, deckId } = req.data || {};
   const pool = await getPool();
@@ -351,6 +357,7 @@ exports.leaveQueue = onCall(async (req) => {
 
 // --- Playing ---
 exports.playMove = onCall(async (req) => {
+  if (isWarmUp(req)) return { warm: true };
   const uid = needUid(req);
   const { matchId, copyUid, slot } = req.data || {};
   return withMatch(matchId, (tx, pool, { ref, state }, profiles) => {

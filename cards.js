@@ -196,6 +196,8 @@ async function run(action, pendingText) {
 // --- Choose a hand ---
 function showDeck(notice) {
   showView("deck");
+  // Wake the online server now, so the game starts without a cold-start wait.
+  CardStore.warmUp();
   renderProfileBar();
   deckNoticeEl.hidden = !notice;
   deckNoticeEl.textContent = notice || "";
@@ -713,11 +715,14 @@ function showMove(move) {
     game.note = "";
     setStatus(`${lead}${game.oppName} is thinking…`, game.colors[game.opp]);
     renderSides();
+    // Time already spent waiting for the server counts as thinking time.
+    const waited = game.sentAt ? Date.now() - game.sentAt : 0;
+    game.sentAt = 0;
     game.wait = setTimeout(() => {
       game.oppPick = oppHandCount() - 1;
       renderHand("opp");
       game.wait = setTimeout(place, CPU_SHOW_PICK_MS);
-    }, CPU_THINK_MS);
+    }, Math.max(0, CPU_THINK_MS - waited));
   } else {
     place();
   }
@@ -872,6 +877,7 @@ async function playMine(card, slot) {
   const color = game.colors[game.seat];
   const flips = findFlips(game.board, slot, card.cardId, color, card.boost);
   game.pending = { slot, cardId: card.cardId, uid: card.uid };
+  game.sentAt = Date.now();
   game.selected = null;
   applyMove(game.board, { seat: game.seat, slot, cardId: card.cardId, flips, ...(card.boost ? { boost: card.boost } : {}) });
   renderBoard(slot, flips);

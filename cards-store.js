@@ -181,6 +181,9 @@ const LocalStore = (() => {
       emit(m);
     },
 
+    // Nothing to wake on this device.
+    warmUp() {},
+
     // Turn clocks only run in games against people.
     async claimTimeout() {},
 

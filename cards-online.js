@@ -14,6 +14,7 @@
 const FIREBASE_SDK = "https://www.gstatic.com/firebasejs/12.19.0";
 const ONLINE_KEY = "cardClashOnline"; // named before the game was WildFlip
 const ONLINE_SLOW_MS = 10000;
+const WARM_UP_EVERY_MS = 4 * 60 * 1000;
 
 const CardOnline = (() => {
   const enabled = typeof WILDFLIP_FIREBASE_CONFIG === "object" && WILDFLIP_FIREBASE_CONFIG !== null;
@@ -160,6 +161,7 @@ const CardOnline = (() => {
   // --- The online store (same methods as LocalStore in cards-store.js) ---
   let profile = null;
   let profileKnown = false;
+  let lastWarmUp = 0;
   let poolKnown = false;
   const profileListeners = [];
 
@@ -335,6 +337,19 @@ const CardOnline = (() => {
 
     async playMove(matchId, copyUid, slot) {
       await call("playMove", { matchId, copyUid, slot });
+    },
+
+    // The server sleeps after a few idle minutes and takes seconds to wake
+    // (a "cold start"). A quick ping before a game wakes the functions a
+    // game uses first; at most once every few minutes.
+    warmUp() {
+      if (Date.now() - lastWarmUp < WARM_UP_EVERY_MS) return;
+      lastWarmUp = Date.now();
+      ["startCpuMatch", "playMove"].forEach((name) => {
+        loading.then((ok) => {
+          if (ok && fb) fb.functions.httpsCallable(fb.fns, name)({ warm: true }).catch(() => {});
+        });
+      });
     },
 
     async resign(matchId) {
