@@ -69,7 +69,7 @@ Open the game in two browsers signed in with two different Google accounts (a no
 ## How online play works
 
 - **Separate profiles.** An online player starts fresh, with 5 starter cards and 100 coins. The offline player saved on a device stays there for playing while signed out. Signing in or out switches between the two.
-- **Coins.** Against the computer a game pays 3 for a win and 1 for a loss. Against a person it pays 30 and 10. Both are set in `COIN_REWARDS` in `cards-rules.js`. Resigning or running out of time pays nothing.
+- **Coins.** Against the computer a game pays 3 for a win and 1 for a loss. Against a person it pays 10 and 3. Both are set in `COIN_REWARDS` in `cards-rules.js`. Resigning or running out of time pays nothing.
 - **Find a Player.** Joining pairs you with the waiting player closest to your level and hand strength (the total of your hand's numbers, upgrades included). The allowed gap widens the longer anyone waits, so with few players around a match can take a minute. If nobody turns up within 30 seconds, you're offered a game against the computer instead.
 - **Experience and the computer.** Every finished game earns XP (a resigned or forfeited game earns no XP or coins). As your level rises, the computer makes fewer mistakes and its cards get upgrades. It always plays cards like yours (same rarity, the same total or a little less), so it can't be farmed for stronger cards. The tuning numbers are near the top of `cards-rules.js`.
 - **Upgrades.** Duplicates of a card raise one side of a copy by 1 (each side once, up to 3 upgrades). Upgrades stay with that copy. A card someone claims comes plain.

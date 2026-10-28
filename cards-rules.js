@@ -37,7 +37,7 @@ const CardRules = (() => {
   const STARTING_COINS = 100;
   const COIN_REWARDS = {
     cpu: { win: 3, draw: 2, loss: 1 },
-    live: { win: 30, draw: 15, loss: 10 },
+    live: { win: 10, draw: 6, loss: 3 },
   };
 
   // Strikes (live games only): a card of the losing player that ends the game
