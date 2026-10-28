@@ -201,6 +201,23 @@ function showDeck(notice) {
   renderProfileBar();
   deckNoticeEl.hidden = !notice;
   deckNoticeEl.textContent = notice || "";
+  // New players are offered the tour until they've taken it or played.
+  let toured = true;
+  try {
+    toured = Boolean(localStorage.getItem("wildflipTourDone"));
+  } catch {
+    // Storage blocked: don't nag.
+  }
+  if (!toured && !profile.stats.played) {
+    deckNoticeEl.hidden = false;
+    if (notice) deckNoticeEl.append(" ");
+    deckNoticeEl.append("New to WildFlip? ");
+    const link = document.createElement("a");
+    link.href = "cards-tour.html";
+    link.className = "cc-link";
+    link.textContent = "Take the 2-minute tour";
+    deckNoticeEl.append(link, ".");
+  }
 
   const collection = playableCollection(profile);
   const owned = new Set(collection.map((c) => c.uid));
