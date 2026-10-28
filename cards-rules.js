@@ -1,4 +1,4 @@
-// Card Clash rules, shared by the browser and the server (Cloud Functions), so
+// WildFlip rules, shared by the browser and the server (Cloud Functions), so
 // both play by exactly the same code. Nothing here touches the page or
 // storage: the card pool, randomness (rng) and id maker are passed in.
 //

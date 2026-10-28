@@ -1,4 +1,4 @@
-// Card Clash collection review: the current player's stats, every card they
+// WildFlip collection review: the current player's stats, every card they
 // own (grouped, with counts), pool cards they haven't found yet, and their
 // recent games.
 const titleEl = document.getElementById("collectionTitle");

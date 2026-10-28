@@ -1,4 +1,4 @@
-// Card Clash packs: spend coins on a pack, then turn its cards over one by
+// WildFlip packs: spend coins on a pack, then turn its cards over one by
 // one (or all at once). The pack's cards are added to the collection as soon
 // as it's bought (by the server when signed in), so leaving mid-reveal loses
 // nothing. Every pack in PACKS is for sale, each with its own odds.
@@ -54,7 +54,7 @@ function offerEl(p) {
   art.dataset.pack = p.id;
   art.setAttribute("aria-hidden", "true");
   art.innerHTML = `
-    <span class="cc-pack-brand">Card Clash</span>
+    <span class="cc-pack-brand">WildFlip</span>
     <span class="cc-pack-icon">${packIcon(p)}</span>
     <span class="cc-pack-name">${escapeHtml(p.name)}</span>
     <span class="cc-pack-size">${p.size} cards</span>`;

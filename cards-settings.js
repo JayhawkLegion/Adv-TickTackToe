@@ -37,7 +37,7 @@ CardOnline.subscribe((s) => {
   if (online) {
     const who = s.user && s.user.name && s.user.email ? `${s.user.name} (${s.user.email})` : s.user ? s.user.name || s.user.email : "";
     const where = s.status === "ready"
-      ? "Your profile, coins and cards are kept on the Card Clash server."
+      ? "Your profile, coins and cards are kept on the WildFlip server."
       : onlineStatusText(s);
     cloudStatusEl.textContent = `${who ? `Signed in as ${who}. ` : ""}${where} ` +
       "Signing out switches back to the player saved on this device.";

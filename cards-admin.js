@@ -478,7 +478,7 @@ poolGridEl.addEventListener("click", (e) => {
 // --- Backup ---
 exportBtn.addEventListener("click", () => {
   const data = {
-    app: "card-clash",
+    app: "wildflip",
     kind: "card-pool",
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -489,7 +489,7 @@ exportBtn.addEventListener("click", () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = "card-clash-cards.json";
+  link.download = "wildflip-cards.json";
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -515,7 +515,7 @@ importFile.addEventListener("change", async () => {
     data = null;
   }
   if (!data || !Array.isArray(data.cards)) {
-    setStatus("That file isn't a Card Clash card export.");
+    setStatus("That file isn't a WildFlip card export.");
     return;
   }
 
@@ -610,7 +610,7 @@ if (online) {
     if (s.admin) {
       poolNoteEl.textContent = "You're signed in as an admin: changes here go to the online card pool and reach every player.";
     } else if (s.adminChecked) {
-      poolNoteEl.textContent = "You're signed in, so this is the online card pool every player uses. Only Card Clash admins can change it.";
+      poolNoteEl.textContent = "You're signed in, so this is the online card pool every player uses. Only WildFlip admins can change it.";
     } else {
       poolNoteEl.textContent = "This is the online card pool every player uses. Checking whether you can change it…";
     }

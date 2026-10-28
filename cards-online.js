@@ -1,5 +1,5 @@
-// Card Clash online: Google sign-in (Firebase Authentication), with the
-// player's profile, games, packs and claims run by the Card Clash server
+// WildFlip online: Google sign-in (Firebase Authentication), with the
+// player's profile, games, packs and claims run by the WildFlip server
 // (Cloud Functions, see functions/) and stored in Cloud Firestore.
 //
 // The server owns every profile: pages read it, and ask the server to play a
@@ -10,13 +10,13 @@
 // A page is in online mode when this browser is signed in (remembered in
 // localStorage so the page knows before Firebase loads); signing in or out
 // reloads the page in the other mode. Entirely off (nothing loaded from the
-// network) while CARD_CLASH_FIREBASE_CONFIG (cards-cloud-config.js) is null.
+// network) while WILDFLIP_FIREBASE_CONFIG (cards-cloud-config.js) is null.
 const FIREBASE_SDK = "https://www.gstatic.com/firebasejs/12.19.0";
-const ONLINE_KEY = "cardClashOnline";
+const ONLINE_KEY = "cardClashOnline"; // named before the game was WildFlip
 const ONLINE_SLOW_MS = 10000;
 
 const CardOnline = (() => {
-  const enabled = typeof CARD_CLASH_FIREBASE_CONFIG === "object" && CARD_CLASH_FIREBASE_CONFIG !== null;
+  const enabled = typeof WILDFLIP_FIREBASE_CONFIG === "object" && WILDFLIP_FIREBASE_CONFIG !== null;
   const session = enabled ? readSession() : null;
   const active = Boolean(session);
   let fb = null; // the Firebase modules and instances, once loaded
@@ -69,7 +69,7 @@ const CardOnline = (() => {
         import(`${FIREBASE_SDK}/firebase-firestore.js`),
         import(`${FIREBASE_SDK}/firebase-functions.js`),
       ]);
-      const fbApp = app.initializeApp(CARD_CLASH_FIREBASE_CONFIG);
+      const fbApp = app.initializeApp(WILDFLIP_FIREBASE_CONFIG);
       fb = {
         auth,
         store,
@@ -79,7 +79,7 @@ const CardOnline = (() => {
         fns: functions.getFunctions(fbApp),
       };
       // Local testing against the Firebase emulators (cards-cloud-config.js).
-      const emu = typeof CARD_CLASH_FIREBASE_EMULATORS === "object" ? CARD_CLASH_FIREBASE_EMULATORS : null;
+      const emu = typeof WILDFLIP_FIREBASE_EMULATORS === "object" ? WILDFLIP_FIREBASE_EMULATORS : null;
       if (emu) {
         auth.connectAuthEmulator(fb.authInstance, `http://${emu.host}:${emu.auth}`, { disableWarnings: true });
         store.connectFirestoreEmulator(fb.db, emu.host, emu.firestore);
@@ -87,9 +87,9 @@ const CardOnline = (() => {
       }
       return true;
     } catch (err) {
-      console.warn("Card Clash: couldn't load Firebase", err);
+      console.warn("WildFlip: couldn't load Firebase", err);
       if (navigator.onLine === false) setStatus("offline", "You're offline.");
-      else setStatus("error", "Couldn't reach the Card Clash server.");
+      else setStatus("error", "Couldn't reach the WildFlip server.");
       return false;
     }
   }
@@ -99,7 +99,7 @@ const CardOnline = (() => {
     try {
       await fb.auth.getRedirectResult(fb.authInstance);
     } catch (err) {
-      console.warn("Card Clash: redirect sign-in failed", err);
+      console.warn("WildFlip: redirect sign-in failed", err);
     }
     fb.auth.onAuthStateChanged(fb.authInstance, (signedIn) => {
       user = signedIn;
@@ -138,7 +138,7 @@ const CardOnline = (() => {
         await fb.auth.signInWithRedirect(fb.authInstance, provider);
         return;
       }
-      console.warn("Card Clash: sign-in failed", err);
+      console.warn("WildFlip: sign-in failed", err);
       setStatus("error", code === "auth/unauthorized-domain"
         ? "This site isn't on the Firebase project's authorized domains yet."
         : "Couldn't sign in. Please try again.");
@@ -174,7 +174,7 @@ const CardOnline = (() => {
       if (!profileKnown || !poolKnown) setStatus("offline", "Can't reach the server. Check your connection.");
     }, ONLINE_SLOW_MS);
     const failed = (err) => {
-      console.warn("Card Clash: online data failed", err);
+      console.warn("WildFlip: online data failed", err);
       setStatus("error", "Lost the connection to the server. Reload to try again.");
     };
     // The pool first, so cards from the Card Builder are known before the
@@ -211,7 +211,7 @@ const CardOnline = (() => {
       const result = await fb.functions.httpsCallable(fb.fns, name)(data);
       return result.data;
     } catch (err) {
-      console.warn(`Card Clash: ${name} failed`, err);
+      console.warn(`WildFlip: ${name} failed`, err);
       const code = String((err && err.code) || "").replace("functions/", "");
       const shown = ["invalid-argument", "failed-precondition", "not-found", "permission-denied", "resource-exhausted"];
       throw new Error(shown.includes(code) && err.message
@@ -351,7 +351,7 @@ const CardOnline = (() => {
 
     async savePool(data) {
       await loading;
-      if (!admin) throw new Error("Only Card Clash admins can change the online card pool.");
+      if (!admin) throw new Error("Only WildFlip admins can change the online card pool.");
       await fb.store.setDoc(fb.store.doc(fb.db, "config", "pool"), { ...data, updatedAt: Date.now(), updatedBy: user.uid });
     },
   };

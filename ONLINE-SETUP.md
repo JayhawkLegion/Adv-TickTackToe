@@ -1,6 +1,6 @@
-# Card Clash online setup
+# WildFlip online setup
 
-Card Clash plays offline with no setup. Online play adds Google sign-in, a profile that lives on a server (so coins and cards can't be edited in the browser), and **Find a Player** games against other people. It runs on Firebase:
+WildFlip plays offline with no setup. Online play adds Google sign-in, a profile that lives on a server (so coins and cards can't be edited in the browser), and **Find a Player** games against other people. It runs on Firebase:
 
 - **Authentication**: Google sign-in.
 - **Cloud Firestore**: profiles, games, the player queue and the card pool.
@@ -10,7 +10,7 @@ This takes about 20 minutes. The steps happen in the Firebase console, plus one 
 
 ## 1. Create the Firebase project
 
-1. Go to [console.firebase.google.com](https://console.firebase.google.com) and **Create a project**. Use a new project just for Card Clash, for example `card-clash`, so its rules can't clash with another app's. Google Analytics isn't needed.
+1. Go to [console.firebase.google.com](https://console.firebase.google.com) and **Create a project**. Use a new project just for WildFlip, for example `wildflip`, so its rules can't clash with another app's. Google Analytics isn't needed.
 2. Switch the project to the **Blaze (pay as you go)** plan: the gear icon → **Usage and billing** → **Details & settings** → **Modify plan**. Cloud Functions need Blaze. At hobby scale the bill should stay at $0, since the free allowances cover millions of function calls and tens of thousands of database reads a day. Set a **budget alert** (for example $5) while you're there so you'd hear about any surprise.
 
 ## 2. Turn on Google sign-in
@@ -21,7 +21,7 @@ This takes about 20 minutes. The steps happen in the Firebase console, plus one 
 
 ## 3. Create the database
 
-**Build → Firestore Database → Create database**. Pick a location near your players (it can't be changed later) and start in **production mode**. The deploy in step 5 replaces the starter rules with Card Clash's (`firestore.rules`).
+**Build → Firestore Database → Create database**. Pick a location near your players (it can't be changed later) and start in **production mode**. The deploy in step 5 replaces the starter rules with WildFlip's (`firestore.rules`).
 
 ## 4. Connect the site to the project
 
@@ -56,7 +56,7 @@ Re-run the last command whenever `functions/`, `firestore.rules` or **`cards-rul
 
 Admins can change the online card pool in the Card Builder.
 
-1. Open Card Clash, go to **Settings** and **Sign in with Google**.
+1. Open WildFlip, go to **Settings** and **Sign in with Google**.
 2. In the Firebase console: **Authentication → Users**, then copy your **User UID**.
 3. **Firestore Database → Start collection**: collection ID `admins`, document ID = your UID, then add any field (for example `role` = `admin`) and **Save**.
 
@@ -86,4 +86,4 @@ With [Node.js](https://nodejs.org) and Java 21 or later installed, you can run e
 npx firebase-tools@15.33.0 emulators:start --project demo-cardclash
 ```
 
-Then uncomment `CARD_CLASH_FIREBASE_EMULATORS` in `cards-cloud-config.js`, set the config to `{ apiKey: "fake", authDomain: "localhost", projectId: "demo-cardclash" }`, and serve the site, for example with `python3 -m http.server`. Don't commit those two changes.
+Then uncomment `WILDFLIP_FIREBASE_EMULATORS` in `cards-cloud-config.js`, set the config to `{ apiKey: "fake", authDomain: "localhost", projectId: "demo-cardclash" }`, and serve the site, for example with `python3 -m http.server`. Don't commit those two changes.

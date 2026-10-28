@@ -1,4 +1,4 @@
-// Card Clash browser code shared by every page: the card pool in use, this
+// WildFlip browser code shared by every page: the card pool in use, this
 // device's saves, and card rendering. The rules themselves (flips, scoring,
 // rewards, packs, strikes) are in cards-rules.js as CardRules, which the
 // server runs too. Loaded after cards-pool.js and cards-rules.js.
@@ -11,6 +11,8 @@ const {
   cleanPack, cardSet, cardTotal, randomItem, colorCount, otherSeat, emptyStats, cleanName,
 } = CardRules;
 
+// Saves keep the names from when the game was called Card Clash, so existing
+// players and Card Builder pools carry over.
 const CARD_SAVE_KEY = "cardClashSave";
 const POOL_SAVE_KEY = "cardClashPool";
 

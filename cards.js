@@ -1,4 +1,4 @@
-// Card Clash: a 3x3 board card game against the computer or, signed in,
+// WildFlip: a 3x3 board card game against the computer or, signed in,
 // another player. A coin toss picks who goes first; the first player is Red,
 // the other Blue. Placing a card flips every touching enemy card whose
 // facing number is lower than the placed card's number on that side. When
@@ -185,7 +185,7 @@ async function run(action, pendingText) {
   try {
     await action();
   } catch (err) {
-    console.warn("Card Clash:", err);
+    console.warn("WildFlip:", err);
     setStatus(err.message || "Something went wrong. Please try again.");
   } finally {
     busy = false;
@@ -604,7 +604,7 @@ function closeMatch() {
 
 function matchFailed(id, err) {
   if (!game || game.id !== id) return;
-  console.warn("Card Clash: couldn't load the game", err);
+  console.warn("WildFlip: couldn't load the game", err);
   closeMatch();
   showDeck();
   setStatus("Couldn't load that game.");

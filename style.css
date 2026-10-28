@@ -627,7 +627,7 @@ h1 {
   display: block;
 }
 
-/* --- Card Clash --- */
+/* --- WildFlip --- */
 .game.cc-page {
   width: min(96vw, 480px);
   padding: 1.25rem;
@@ -2413,4 +2413,16 @@ div.cc-hand-card {
 
 .cc-upgrade .reset-btn {
   width: 100%;
+}
+
+/* The WildFlip logo beside the title. */
+.cc-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.cc-logo {
+  width: 1.3em;
+  height: 1.3em;
 }

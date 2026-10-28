@@ -1,6 +1,6 @@
 {
-  "name": "card-clash-functions",
-  "description": "Card Clash server: Cloud Functions for Firebase",
+  "name": "wildflip-functions",
+  "description": "WildFlip server: Cloud Functions for Firebase",
   "private": true,
   "main": "index.js",
   "engines": {

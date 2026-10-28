@@ -1,4 +1,4 @@
-// Card Clash simulator: the computer plays your side against the computer
+// WildFlip simulator: the computer plays your side against the computer
 // opponent, either one game you watch move by move or many games at once with
 // a summary of the results. Uses the same rules, card draws and computer
 // player as the real game (cards-data.js) and never saves anything.

@@ -1,4 +1,4 @@
-// Card Clash server: Cloud Functions that own every signed-in player's
+// WildFlip server: Cloud Functions that own every signed-in player's
 // profile and run every online game, using the same rules as the browser
 // (cards-rules.js, copied into shared/ before deploying; see
 // scripts/copy-shared.js).

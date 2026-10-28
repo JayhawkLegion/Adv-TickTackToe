@@ -1,4 +1,4 @@
-// Card Clash online play: Google sign-in, profiles kept on the Card Clash
+// WildFlip online play: Google sign-in, profiles kept on the WildFlip
 // server, and games against other players. While this is null the game is
 // offline-only and nothing is loaded from the network.
 //
@@ -8,10 +8,10 @@
 //
 // The config isn't a secret: it only names the project. The server and the
 // Firestore rules decide who can read or change what.
-const CARD_CLASH_FIREBASE_CONFIG = null;
+const WILDFLIP_FIREBASE_CONFIG = null;
 
 // It looks like this:
-// const CARD_CLASH_FIREBASE_CONFIG = {
+// const WILDFLIP_FIREBASE_CONFIG = {
 //   apiKey: "AIza...",
 //   authDomain: "your-project.firebaseapp.com",
 //   projectId: "your-project",
@@ -22,4 +22,4 @@ const CARD_CLASH_FIREBASE_CONFIG = null;
 
 // For testing on your own computer with the Firebase emulators
 // (firebase emulators:start), uncomment this as well:
-// const CARD_CLASH_FIREBASE_EMULATORS = { host: "127.0.0.1", auth: 9099, firestore: 8080, functions: 5001 };
+// const WILDFLIP_FIREBASE_EMULATORS = { host: "127.0.0.1", auth: 9099, firestore: 8080, functions: 5001 };

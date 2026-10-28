@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Card Clash. The server (Cloud Functions, see functions/) writes profiles,
+// WildFlip. The server (Cloud Functions, see functions/) writes profiles,
 // games and the queue; it isn't bound by these rules. Players can read their
 // own data, and change only their name and saved decks.
 service cloud.firestore {

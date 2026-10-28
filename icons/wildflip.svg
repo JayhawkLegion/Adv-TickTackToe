@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="WildFlip">
+  <title>WildFlip</title>
+  <defs>
+    <rect id="shape" x="-86" y="-86" width="172" height="172" rx="26"/>
+    <clipPath id="under"><rect x="-92" y="-92" width="184" height="184" rx="32" transform="translate(256 256) rotate(270) translate(0 -124) rotate(0.0)"/></clipPath>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f87171"/><stop offset="1" stop-color="#b91c1c"/></linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5eead4"/><stop offset="1" stop-color="#0f766e"/></linearGradient>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9b8ff"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+    <!-- One card: rounded corners, a light inner edge and a gem in its outer corner. -->
+    <g id="card">
+      <use href="#shape" stroke="#1e1f29" stroke-width="10"/>
+      <rect x="-72" y="-72" width="144" height="144" rx="19" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="6"/>
+      <path d="M-56 -68 l13 13 l-13 13 l-13 -13 z" fill="#fff" fill-opacity="0.9"/>
+    </g>
+  </defs>
+
+  <!-- The cards, turned slightly clockwise as one piece. -->
+  <g transform="rotate(14 256 256)">
+  <!-- Four cards in a ring, each overlapping its neighbors by one corner. -->
+  <g transform="translate(256 256)">
+    <g transform="rotate(0) translate(0 -124) rotate(0.0)" fill="url(#red)"><use href="#card"/></g>
+    <g transform="rotate(90) translate(0 -124) rotate(0.0)" fill="url(#blue)"><use href="#card"/></g>
+    <g transform="rotate(180) translate(0 -124) rotate(0.0)" fill="url(#teal)"><use href="#card"/></g>
+    <g transform="rotate(270) translate(0 -124) rotate(0.0)" fill="url(#violet)"><use href="#card"/></g>
+  </g>
+  <!-- The first card again, only where it lies on the last, so the overlaps go round evenly. -->
+  <g clip-path="url(#under)">
+    <g transform="translate(256 256) rotate(0) translate(0 -124) rotate(0.0)" fill="url(#red)"><use href="#card"/></g>
+  </g>
+  </g>
+
+  <!-- The flip: two arrows chasing round the middle. -->
+  <g transform="translate(256 256) scale(0.7)">
+    <circle r="54" fill="#1e1f29" stroke="#fff" stroke-width="7"/>
+    <g fill="none" stroke="#ffd166" stroke-width="11" stroke-linecap="round">
+      <path d="M-30 -12 A32 32 0 0 1 19 -26"/>
+      <path d="M30 12 A32 32 0 0 1 -19 26"/>
+    </g>
+    <path d="M12 -40 L35 -24 L10 -12 Z" fill="#ffd166"/>
+    <path d="M-12 40 L-35 24 L-10 12 Z" fill="#ffd166"/>
+  </g>
+</svg>
