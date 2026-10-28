@@ -371,6 +371,25 @@ const CardOnline = (() => {
   };
 })();
 
+// Admin-only pages (Card Builder, Simulator) show their content only to a
+// signed-in admin; everyone else gets a short note instead. Hiding is for
+// tidiness: the Firestore rules are what stop anyone else changing the
+// online pool.
+function adminOnlyPage() {
+  const main = document.querySelector("main");
+  const note = document.createElement("p");
+  note.className = "cc-note cc-gate";
+  main.insertBefore(note, main.children[1]);
+  CardOnline.subscribe((s) => {
+    const open = s.active && s.admin;
+    main.classList.toggle("cc-locked", !open);
+    note.hidden = open;
+    if (!s.active) note.textContent = "This page is for WildFlip admins. Sign in with Google in Settings to use it.";
+    else if (s.adminChecked) note.textContent = "This page is for WildFlip admins only.";
+    else note.textContent = "Checking your access…";
+  });
+}
+
 // The "Sign in with Google" button, in Google's standard style.
 function googleSignInButton(label = "Sign in with Google") {
   const btn = document.createElement("button");

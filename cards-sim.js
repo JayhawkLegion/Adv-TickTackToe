@@ -497,3 +497,5 @@ CardStore.onProfile((next) => {
   }
 });
 if (!profileSeen) setupOptions();
+
+adminOnlyPage();

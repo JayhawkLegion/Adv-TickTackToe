@@ -26,6 +26,12 @@ if (online) {
 }
 
 // --- Online play ---
+// The admin tools (Card Builder, Simulator) are only offered to admins.
+const adminBlockEl = document.getElementById("adminBlock");
+CardOnline.subscribe((s) => {
+  adminBlockEl.hidden = !(s.active && s.admin);
+});
+
 CardOnline.subscribe((s) => {
   cloudActionsEl.innerHTML = "";
   if (!s.enabled) {

@@ -2426,3 +2426,8 @@ div.cc-hand-card {
   width: 1.3em;
   height: 1.3em;
 }
+
+/* Admin-only pages for everyone else: just the title, the note and the way back. */
+.cc-locked > :not(h1):not(.cc-gate):not(.cc-admin-back) {
+  display: none !important;
+}
