@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Settings - WildFlip</title>
+
+<link rel="manifest" href="wildflip.webmanifest">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WildFlip">
+<link rel="apple-touch-icon" href="icons/wildflip-apple-touch.png">
+
+<link rel="icon" href="icons/wildflip.svg" type="image/svg+xml">
+<link rel="alternate icon" href="icons/wildflip-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game">
+    <h1>WildFlip Settings</h1>
+
+    <div class="setting-block">
+      <label>Online play</label>
+      <p id="cloudStatus" class="settings-hint"></p>
+      <div id="cloudActions" class="cc-cloud-actions"></div>
+    </div>
+
+    <div id="noPlayer" class="setting-block" hidden>
+      <p class="settings-hint">No player yet. Start WildFlip to create one.</p>
+    </div>
+
+    <div id="playerSettings" hidden>
+      <div class="setting-block">
+        <label for="nameInput">Player name</label>
+        <input id="nameInput" class="cc-input" type="text" maxlength="20" autocomplete="off">
+      </div>
+
+      <div class="setting-block">
+        <label>Start over</label>
+        <p id="resetHint" class="settings-hint">
+          Deletes this player's collection, stats and game history. You'll pick a name again and get 5 new random starter cards.
+        </p>
+        <button id="resetPlayerBtn" class="reset-btn cc-danger">Reset Player</button>
+      </div>
+    </div>
+
+    <div class="setting-block">
+      <label>Admin</label>
+      <p class="settings-hint">
+        Build new cards for the pool and set how often each rarity appears (signed in, only admins can change
+        the online pool), or let the computer play your cards in the simulator to test how the game plays.
+      </p>
+      <a href="cards-admin.html" class="reset-btn cc-btn-link cc-secondary cc-admin-link">Card Builder</a>
+      <a href="cards-sim.html" class="reset-btn cc-btn-link cc-secondary cc-admin-link">Simulator</a>
+    </div>
+
+    <div class="settings-actions">
+      <button id="saveBtn" class="reset-btn">Save &amp; Back to Game</button>
+    </div>
+  </main>
+
+  <script src="cards-pool.js"></script>
+  <script src="cards-rules.js"></script>
+  <script src="cards-data.js"></script>
+  <script src="cards-cloud-config.js"></script>
+  <script src="cards-online.js"></script>
+  <script src="cards-store.js"></script>
+  <script src="cards-settings.js"></script>
+</body>
+</html>

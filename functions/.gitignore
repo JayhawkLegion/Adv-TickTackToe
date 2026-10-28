@@ -1,0 +1,4 @@
+node_modules/
+# Copied from the site root by scripts/copy-shared.js before each deploy.
+shared/
+*.log

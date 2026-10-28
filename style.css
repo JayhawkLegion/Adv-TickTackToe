@@ -14,6 +14,12 @@
   --c4-frame: #2f5bd3;
   --c4-red: #ef4444;
   --c4-yellow: #facc15;
+  /* Simulator outcomes: an ordered good / neutral / bad scale, checked for
+     colorblind separation on the panel color. */
+  --outcome-win: #0f9f9a;
+  --outcome-draw: #c3c5d4;
+  --outcome-loss: #e8590c;
+  --outcome-ink: #111218;
 }
 
 * {
@@ -619,4 +625,1804 @@ h1 {
   width: 100%;
   height: auto;
   display: block;
+}
+
+/* --- WildFlip --- */
+.game.cc-page {
+  width: min(96vw, 480px);
+  padding: 1.25rem;
+}
+
+.cc-page [hidden] {
+  display: none !important;
+}
+
+/* Room for two lines so the board doesn't jump when a message wraps. */
+.cc-page .status {
+  margin-bottom: 0.8rem;
+  min-height: 2.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status[data-color="red"] {
+  color: var(--red-color);
+}
+
+.status[data-color="blue"] {
+  color: var(--blue-color);
+}
+
+.cc-note {
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0 0 1rem;
+}
+
+.cc-muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.cc-notice {
+  background: rgba(108, 99, 255, 0.18);
+  border: 1px solid var(--accent);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  margin: 0 0 0.8rem;
+}
+
+.cc-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cc-input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  background: var(--cell);
+  border: 2px solid transparent;
+  border-radius: 0.6rem;
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+  padding: 0.65rem 0.8rem;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.cc-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cc-profile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--cell);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.8rem;
+  text-align: left;
+}
+
+.cc-profile-name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.cc-link {
+  color: #a9a4ff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cc-link:hover {
+  text-decoration: underline;
+}
+
+.cc-rules {
+  text-align: left;
+  margin-top: 1.2rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.cc-rules summary {
+  cursor: pointer;
+  color: var(--text);
+  text-align: center;
+}
+
+.cc-rules ul {
+  padding-left: 1.2rem;
+  line-height: 1.45;
+}
+
+.cc-red-text {
+  color: var(--red-color);
+  font-weight: 700;
+}
+
+.cc-blue-text {
+  color: var(--blue-color);
+  font-weight: 700;
+}
+
+/* A card: four side numbers around a picture. Sizes scale with the card. */
+.cc-card {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
+  grid-template-rows: 1fr 1.5fr 1fr;
+  place-items: center;
+  border: 3px solid var(--rarity-color, var(--muted));
+  border-radius: 12%;
+  background: linear-gradient(160deg, #474a6e, #2a2c3a);
+  color: #fff;
+  font-weight: 800;
+  line-height: 1;
+  overflow: hidden;
+}
+
+.cc-card.red {
+  border-color: var(--red-color);
+  background: linear-gradient(160deg, #c2414b, #6b1d26);
+}
+
+.cc-card.blue {
+  border-color: var(--blue-color);
+  background: linear-gradient(160deg, #3c6fd8, #1b326e);
+}
+
+.cc-num {
+  font-size: 19cqw;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.cc-top { grid-area: 1 / 2; }
+.cc-left { grid-area: 2 / 1; }
+.cc-right { grid-area: 2 / 3; }
+.cc-bottom { grid-area: 3 / 2; }
+
+.cc-face {
+  grid-area: 2 / 2;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3cqw;
+}
+
+.cc-icon {
+  font-size: 32cqw;
+}
+
+.cc-name {
+  font-size: 10cqw;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Rare and better cards carry a gem in the corner, colored by rarity. */
+.cc-gem {
+  grid-area: 1 / 1;
+  width: 12cqw;
+  height: 12cqw;
+  background: var(--rarity-color);
+  border-radius: 2cqw;
+  transform: rotate(45deg);
+  box-shadow: 0 0 0 1.5cqw rgba(0, 0, 0, 0.35), 0 0 6cqw var(--rarity-color);
+}
+
+/* Epic cards stand out from rares: a faceted violet gem with a sparkle, a
+   violet-to-pink gradient border, and in play (where the border shows the
+   player's color) a violet inner ring. */
+.cc-card[data-rarity="epic"] {
+  border-color: transparent;
+  background:
+    linear-gradient(160deg, #4f3f78, #2a2340) padding-box,
+    linear-gradient(135deg, #f0abfc, #c084fc 45%, #7c3aed) border-box;
+}
+
+.cc-card[data-rarity="epic"].red {
+  border-color: var(--red-color);
+  background: linear-gradient(160deg, #c2414b, #6b1d26);
+}
+
+.cc-card[data-rarity="epic"].blue {
+  border-color: var(--blue-color);
+  background: linear-gradient(160deg, #3c6fd8, #1b326e);
+}
+
+.cc-card[data-rarity="epic"].red::after,
+.cc-card[data-rarity="epic"].blue::after {
+  content: "";
+  position: absolute;
+  inset: 3cqw;
+  border: 1.5px solid #e9c2ff;
+  border-radius: 9%;
+  box-shadow: 0 0 4cqw rgba(192, 132, 252, 0.6);
+  pointer-events: none;
+}
+
+.cc-card[data-rarity="epic"] .cc-gem {
+  width: 14cqw;
+  height: 14cqw;
+  background: linear-gradient(135deg, #fdf4ff 0%, #f0abfc 30%, #c084fc 60%, #7c3aed 100%);
+  box-shadow: 0 0 0 1.5cqw rgba(0, 0, 0, 0.35), 0 0 8cqw #e879f9;
+}
+
+@container (max-width: 90px) {
+  .cc-name {
+    display: none;
+  }
+}
+
+.cc-card.cc-placed {
+  animation: cc-place 0.25s ease-out;
+}
+
+@keyframes cc-place {
+  from { transform: scale(1.15); opacity: 0.3; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.cc-card.cc-flipping {
+  animation: cc-flip 0.5s ease-in-out;
+}
+
+@keyframes cc-flip {
+  0% { transform: perspective(400px) rotateY(0); }
+  50% { transform: perspective(400px) rotateY(90deg); }
+  100% { transform: perspective(400px) rotateY(0); }
+}
+
+.cc-slot,
+.cc-hand-card,
+.cc-pick {
+  font: inherit;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  touch-action: manipulation;
+}
+
+/* Board */
+.cc-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  width: min(100%, 330px);
+  margin: 0.6rem auto;
+  padding: 0.4rem;
+  background: var(--cell);
+  border-radius: 0.8rem;
+}
+
+.cc-slot {
+  aspect-ratio: 1 / 1;
+  background: var(--bg);
+  border-radius: 0.6rem;
+  cursor: default;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cc-board.placing .cc-slot:not(:disabled) {
+  cursor: pointer;
+}
+
+.cc-board.placing .cc-slot:not(:disabled):hover {
+  background: var(--cell-hover);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.cc-slot.cc-claimable .cc-card {
+  box-shadow: 0 0 0 3px var(--win);
+  animation: cc-glow 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes cc-glow {
+  to { box-shadow: 0 0 0 3px var(--win), 0 0 14px var(--win); }
+}
+
+/* Hands and player bars */
+.cc-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.2rem 0.2rem;
+}
+
+.cc-who {
+  font-weight: 700;
+}
+
+.cc-score {
+  font-size: 1.3rem;
+  min-width: 2.2rem;
+  background: var(--cell);
+  border-radius: 0.5rem;
+  padding: 0.15rem 0.5rem;
+}
+
+.cc-side[data-color="red"] .cc-who,
+.cc-side[data-color="red"] .cc-score {
+  color: var(--red-color);
+}
+
+.cc-side[data-color="blue"] .cc-who,
+.cc-side[data-color="blue"] .cc-score {
+  color: var(--blue-color);
+}
+
+.cc-hand {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Keeps an empty hand from collapsing so the board doesn't jump. */
+.cc-hand:empty::before {
+  content: "";
+  flex: 0 0 calc((100% - 1.6rem) / 5);
+  aspect-ratio: 1 / 1;
+}
+
+.cc-hand.waiting {
+  opacity: 0.55;
+}
+
+.cc-hand-card {
+  flex: 0 0 calc((100% - 1.6rem) / 5);
+  border-radius: 12%;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.cc-hand-card:disabled,
+div.cc-hand-card {
+  cursor: default;
+}
+
+.cc-hand-card.selected {
+  transform: translateY(-10%);
+}
+
+#oppHand .cc-hand-card.selected {
+  transform: translateY(10%);
+}
+
+.cc-hand-card.selected .cc-card {
+  box-shadow: 0 0 0 3px var(--win);
+}
+
+.cc-result {
+  margin-top: 0.8rem;
+}
+
+.cc-result-score {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.cc-result .cc-hand-card {
+  flex-basis: min(32%, 130px);
+}
+
+.cc-result .reset-btn {
+  margin-top: 0.8rem;
+}
+
+.cc-hand-card.cc-claimed {
+  animation: cc-place 0.35s ease-out;
+}
+
+/* Hand picker */
+.cc-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+
+.cc-pick {
+  position: relative;
+  border-radius: 12%;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.cc-pick.selected {
+  transform: translateY(-4px);
+}
+
+.cc-pick.selected .cc-card {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+.cc-pick.selected::after {
+  content: "✓";
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Collection page */
+.cc-heading {
+  font-size: 0.85rem;
+  text-align: left;
+  margin: 1.2rem 0 0.6rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cc-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.cc-collection {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.8rem;
+}
+
+.cc-collect-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cc-collect-item.missing .cc-card {
+  filter: grayscale(1) brightness(0.55);
+}
+
+.cc-caption {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  font-weight: 600;
+  gap: 0.1rem;
+}
+
+.cc-caption .cc-muted {
+  font-size: 0.7rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cc-count {
+  background: var(--cell);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.cc-collect-item.missing .cc-count {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.cc-history {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  text-align: left;
+}
+
+.cc-history li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+  background: var(--cell);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.cc-win {
+  color: #4ade80;
+}
+
+.cc-loss {
+  color: var(--x-color);
+}
+
+.cc-draw {
+  color: var(--win);
+}
+
+.cc-when {
+  margin-left: auto;
+  font-size: 0.75rem;
+}
+
+.cc-btn-link {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.cc-danger {
+  background: #b91c1c;
+}
+
+.setting-block .cc-input {
+  margin-bottom: 0.4rem;
+}
+
+.setting-block .cc-danger {
+  margin-top: 0.8rem;
+}
+
+/* Card Builder */
+.cc-rarity-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cc-rarity-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.6fr 1.3fr;
+  gap: 0.5rem;
+  align-items: center;
+  background: var(--cell);
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.cc-rarity-row.cc-rarity-head {
+  background: none;
+  padding: 0 0.6rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cc-rarity-name {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+  color: var(--rarity-color);
+}
+
+.cc-dot {
+  flex: 0 0 auto;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 2px;
+  background: var(--rarity-color);
+  transform: rotate(45deg);
+}
+
+.cc-pct-input {
+  position: relative;
+}
+
+.cc-pct-input::after {
+  content: "%";
+  position: absolute;
+  right: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.cc-pct-input .cc-input {
+  background: var(--panel);
+  padding: 0.4rem 1.4rem 0.4rem 0.5rem;
+  -moz-appearance: textfield;
+}
+
+.cc-pct-input .cc-input::-webkit-inner-spin-button,
+.cc-pct-input .cc-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cc-rarity-actual small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.cc-chance-total {
+  font-weight: 600;
+  margin: 0.7rem 0;
+  color: #4ade80;
+}
+
+.cc-chance-total.bad {
+  color: var(--x-color);
+}
+
+#chanceForm .reset-btn {
+  margin-top: 0.8rem;
+}
+
+.reset-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  filter: none;
+}
+
+.cc-builder {
+  text-align: left;
+}
+
+.cc-builder label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.9rem 0 0.35rem;
+}
+
+.cc-builder-card {
+  display: grid;
+  grid-template-columns: auto min(160px, 42vw) auto;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cc-builder-preview {
+  grid-area: 2 / 2;
+}
+
+.cc-sel-top { grid-area: 1 / 2; justify-self: center; }
+.cc-sel-left { grid-area: 2 / 1; }
+.cc-sel-right { grid-area: 2 / 3; }
+.cc-sel-bottom { grid-area: 3 / 2; justify-self: center; }
+
+.cc-side-select {
+  background: var(--cell);
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.35rem 0.4rem;
+  cursor: pointer;
+}
+
+.cc-side-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cc-emoji-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.45rem;
+}
+
+.cc-emoji-picks button {
+  font-size: 1.25rem;
+  line-height: 1;
+  background: var(--cell);
+  border: none;
+  border-radius: 0.4rem;
+  padding: 0.3rem 0.35rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cc-emoji-picks button:hover {
+  background: var(--cell-hover);
+}
+
+.size-option.cc-rarity-option {
+  color: var(--rarity-color);
+  font-size: 0.8rem;
+  padding: 0.6rem 0.2rem;
+}
+
+.size-option.cc-rarity-option.selected {
+  border-color: var(--rarity-color);
+}
+
+.cc-error {
+  color: var(--x-color);
+  font-size: 0.9rem;
+  margin: 0.6rem 0 0;
+}
+
+.cc-form-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.cc-secondary {
+  background: var(--cell);
+}
+
+.cc-pool-item {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cc-pool-item.editing .cc-card {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+.cc-admin-back {
+  margin-top: 1.5rem;
+}
+
+.setting-block .cc-admin-link {
+  margin-top: 0.8rem;
+}
+
+/* Collection groups and Card Builder pool filters */
+.cc-heading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cc-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.cc-toggle input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+.cc-rarity-heading {
+  font-size: 0.95rem;
+  text-align: left;
+  margin: 0.9rem 0 0.5rem;
+}
+
+.cc-none {
+  text-align: left;
+  margin: 0 0 0.5rem;
+}
+
+.cc-pool-filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.cc-pool-filters .cc-input {
+  padding: 0.5rem 0.7rem;
+}
+
+.cc-pool-filters .cc-side-select {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Simulator */
+.cc-sim-note {
+  margin: -0.4rem 0 0.4rem;
+  text-align: center;
+}
+
+.cc-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 0.8rem;
+  align-items: center;
+  text-align: left;
+  font-size: 0.9rem;
+  margin-bottom: 0.6rem;
+}
+
+.cc-fields label {
+  color: var(--muted);
+}
+
+.cc-select {
+  width: 100%;
+  min-width: 0;
+  background: var(--cell);
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.45rem 0.5rem;
+  cursor: pointer;
+}
+
+.cc-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cc-sim-preview {
+  margin-bottom: 0.4rem;
+}
+
+.cc-sim-controls .size-options {
+  margin-bottom: 0;
+}
+
+.cc-sim-controls .cc-form-actions {
+  margin-top: 0.8rem;
+}
+
+#watchArea {
+  margin-top: 1rem;
+}
+
+.cc-sim-results {
+  margin-top: 1.2rem;
+  text-align: left;
+}
+
+.cc-sim-title {
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0 0 0.7rem;
+}
+
+/* One stacked bar: 2px panel-colored gaps between segments, rounded ends. */
+.cc-outcome-bar {
+  display: flex;
+  gap: 2px;
+  height: 2.2rem;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.cc-outcome-seg {
+  flex-basis: 0;
+  min-width: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--outcome-ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cc-outcome-win { background: var(--outcome-win); }
+.cc-outcome-draw { background: var(--outcome-draw); }
+.cc-outcome-loss { background: var(--outcome-loss); }
+
+.cc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  margin: 0.55rem 0 1rem;
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.cc-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cc-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 2px;
+}
+
+.cc-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.cc-sim-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 0.3rem;
+  font-size: 0.9rem;
+}
+
+.cc-sim-table caption {
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.cc-sim-table th,
+.cc-sim-table td {
+  padding: 0.45rem 0.6rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-sim-table th:first-child {
+  text-align: left;
+}
+
+.cc-sim-table thead th {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.cc-sim-table tbody th,
+.cc-sim-table tbody td {
+  background: var(--cell);
+}
+
+.cc-sim-table tbody th {
+  border-radius: 0.5rem 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.cc-sim-table tbody td:last-child {
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.setting-block .cc-admin-link + .cc-admin-link {
+  margin-left: 0.4rem;
+}
+
+.cc-run-status {
+  min-height: 1.3em;
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* Coins and packs */
+.cc-profile-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
+.cc-result-coins {
+  margin: 0 0 0.6rem;
+  font-weight: 700;
+  color: var(--win);
+}
+
+.cc-wallet {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--cell);
+  border-radius: 999px;
+  padding: 0.35rem 0.95rem;
+  margin-bottom: 0.8rem;
+}
+
+.cc-pack-art {
+  position: relative;
+  width: min(170px, 48vw);
+  aspect-ratio: 3 / 4;
+  margin: 0.2rem auto 1rem;
+  border-radius: 0.9rem;
+  background: linear-gradient(155deg, #8b7dff 0%, #6c63ff 45%, #3b2f9e 100%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), inset 0 0 0 3px rgba(255, 255, 255, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  color: #fff;
+  overflow: hidden;
+}
+
+.cc-pack-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0 10px, transparent 10px 20px);
+}
+
+.cc-pack-brand {
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.cc-pack-icon {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.cc-pack-name {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.cc-pack-size {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.cc-pack-tear {
+  animation: cc-tear 0.7s ease-in forwards;
+}
+
+@keyframes cc-tear {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(-4deg); }
+  30% { transform: rotate(4deg); }
+  45% { transform: rotate(-3deg); }
+  60% { transform: rotate(2deg); opacity: 1; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+
+.cc-odds-table {
+  margin-top: 1rem;
+}
+
+.cc-odds-table .cc-rarity-name {
+  font-weight: 600;
+}
+
+.cc-pack-cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0.4rem 0 0.6rem;
+}
+
+.cc-pack-slot {
+  position: relative;
+  flex: 0 0 min(30%, 130px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  animation: cc-deal 0.35s ease-out both;
+}
+
+.cc-pack-slot:disabled {
+  cursor: default;
+}
+
+@keyframes cc-deal {
+  from { transform: translateY(30px) scale(0.8); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.cc-card-back {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12%;
+  border: 3px solid #8b7dff;
+  background: repeating-linear-gradient(45deg, #4a3fb8 0 8px, #3b2f9e 8px 16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.85);
+  transition: transform 0.15s ease;
+}
+
+.cc-pack-slot:not(:disabled):hover .cc-card-back {
+  transform: translateY(-4px);
+}
+
+.cc-card.cc-glow {
+  box-shadow: 0 0 0 2px var(--rarity-color), 0 0 18px var(--rarity-color);
+}
+
+.cc-new-badge {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.45rem;
+  background: var(--win);
+  color: #1e1f29;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+}
+
+.cc-pack-slot .cc-caption {
+  font-size: 0.8rem;
+}
+
+/* Collection groups: name, found / total, and a progress meter (the track
+   is a darker step of the accent, the fill the accent itself). */
+.cc-group-by {
+  margin: 0.2rem 0 0.4rem;
+}
+
+.cc-group-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0.3rem 0.5rem;
+  margin: 1rem 0 0.6rem;
+}
+
+.cc-group-head .cc-rarity-heading {
+  margin: 0;
+}
+
+.cc-group-count {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-meter {
+  grid-column: 1 / -1;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(108, 99, 255, 0.22);
+  overflow: hidden;
+}
+
+.cc-meter span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+/* The opponent's cards in hand: an outline in their color, face down. */
+.cc-card-hidden {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12%;
+  border: 3px solid var(--muted);
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.04) 0 6px, transparent 6px 12px), var(--bg);
+}
+
+.cc-card-hidden.red {
+  border-color: var(--red-color);
+}
+
+.cc-card-hidden.blue {
+  border-color: var(--blue-color);
+}
+
+/* Catalog: unfound cards, tappable items and the close-up */
+.cc-catalog-item {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cc-catalog-item:focus-visible .cc-card,
+.cc-catalog-item:focus-visible .cc-card-unfound {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.cc-card-unfound {
+  container-type: inline-size;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12%;
+  border: 3px dashed var(--rarity-color, var(--muted));
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4cqw;
+}
+
+.cc-unfound-no {
+  font-size: 20cqw;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.cc-unfound-rarity {
+  font-size: 10cqw;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--rarity-color);
+}
+
+.cc-tap-hint {
+  margin: 0.4rem 0 0;
+}
+
+.cc-dialog {
+  border: none;
+  border-radius: 1rem;
+  padding: 0;
+  background: var(--panel);
+  color: var(--text);
+  width: min(92vw, 360px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+.cc-dialog::backdrop {
+  background: rgba(10, 10, 16, 0.7);
+}
+
+.cc-closeup {
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.cc-closeup-card {
+  width: min(200px, 56vw);
+  margin: 0 auto 0.8rem;
+}
+
+.cc-closeup-title {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.cc-closeup-meta {
+  margin: 0.25rem 0 0.9rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.cc-closeup-stats {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.6rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--cell);
+  border-radius: 0.6rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.cc-closeup-stats dt {
+  color: var(--muted);
+}
+
+.cc-closeup-stats dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-closeup-stats:empty {
+  display: none;
+}
+
+.cc-closeup .reset-btn {
+  margin-top: 0.6rem;
+}
+
+/* Hand picker: Cards / My Decks tabs, saving a deck, the deck list */
+.cc-tabs {
+  margin-bottom: 0.8rem;
+}
+
+.cc-save-deck {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: -0.4rem 0 1rem;
+}
+
+.cc-save-deck .cc-input {
+  flex: 1 1 10rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.cc-save-deck .reset-btn {
+  padding: 0.55rem 1rem;
+  font-size: 0.95rem;
+}
+
+.cc-play-btn {
+  margin-top: 0.2rem;
+}
+
+.cc-deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.2rem;
+  text-align: left;
+}
+
+.cc-deck-row {
+  background: var(--cell);
+  border: 2px solid transparent;
+  border-radius: 0.8rem;
+  padding: 0.6rem 0.7rem 0.4rem;
+  transition: border-color 0.15s ease;
+}
+
+.cc-deck-row.selected {
+  border-color: var(--accent);
+}
+
+.cc-deck-pick {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cc-deck-pick:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.cc-deck-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.cc-deck-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+}
+
+.cc-deck-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 0.35rem;
+}
+
+.cc-link-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem 0;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #a9a4ff;
+  cursor: pointer;
+}
+
+.cc-link-btn:hover {
+  text-decoration: underline;
+}
+
+/* Online profile: Google sign-in button, status, profile choice */
+.cc-cloud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.cc-google-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #747775;
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem 0.55rem 0.9rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cc-google-btn:hover {
+  background: #f2f2f2;
+}
+
+.cc-google-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.cc-cloud-badge {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.cc-cloud-badge:hover {
+  color: var(--text);
+}
+
+.cc-setup-cloud {
+  margin-top: 1rem;
+}
+
+.cc-setup-cloud .cc-cloud-actions {
+  justify-content: center;
+}
+
+.cc-or {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 0.6rem;
+}
+
+.cc-or::before,
+.cc-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--cell-hover);
+}
+
+/* Play buttons: the computer, or (online) another player. */
+.cc-play-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+/* Find a Player: three cards shuffling while the queue looks. */
+.cc-queue {
+  padding: 1.2rem 0 0.4rem;
+}
+
+.cc-queue-cards {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.cc-queue-cards span {
+  width: 3.2rem;
+  aspect-ratio: 1 / 1;
+  border-radius: 12%;
+  background: linear-gradient(160deg, var(--accent), #3a3480);
+  animation: cc-queue-bob 1.2s ease-in-out infinite;
+}
+
+.cc-queue-cards span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.cc-queue-cards span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes cc-queue-bob {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(-0.5rem); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-queue-cards span {
+    animation: none;
+  }
+}
+
+/* Live games: the turn clock beside the player whose turn it is. */
+.cc-bar .cc-timer {
+  margin-left: auto;
+  margin-right: 0.6rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cc-bar .cc-timer.cc-low {
+  color: var(--win);
+}
+
+.cc-resign {
+  display: block;
+  margin: 0.2rem auto 0;
+  color: var(--muted);
+}
+
+/* Strikes on an owned copy: marks in the card's bottom-right corner, clear
+   of the bottom number. */
+.cc-strikes {
+  position: absolute;
+  right: 8%;
+  bottom: 6%;
+  display: flex;
+  gap: 2cqi;
+}
+
+.cc-strike {
+  width: 9cqi;
+  height: 9cqi;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.cc-strike.on {
+  background: var(--red-color);
+  border-color: #fff;
+}
+
+.cc-result-strikes .cc-note {
+  margin-bottom: 0.2rem;
+}
+
+.cc-struck {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cc-struck .cc-caption {
+  font-size: 0.75rem;
+}
+
+.cc-struck.cc-lost .cc-card {
+  filter: grayscale(1) brightness(0.6);
+}
+
+.cc-struck.cc-lost .cc-caption {
+  color: var(--red-color);
+}
+
+/* Claim choices can carry a NEW tag in the corner. */
+#claimChoices .cc-hand-card {
+  position: relative;
+}
+
+/* Rarity filter chips (hand picker, collection): smaller than the main
+   options, each rarity's chip edged in its color. */
+.cc-filter {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.cc-filter .size-option {
+  flex: 0 1 auto;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  border-radius: 999px;
+}
+
+.cc-filter .size-option[style*="--rarity-color"] {
+  box-shadow: inset 0 -2px 0 var(--rarity-color);
+}
+
+.cc-filter .size-option.selected[style*="--rarity-color"] {
+  border-color: var(--rarity-color);
+}
+
+.cc-pick-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.4rem 0.6rem;
+}
+
+.cc-pick-tools .cc-filter {
+  margin-bottom: 0;
+}
+
+.cc-sort {
+  width: auto;
+  margin-left: auto;
+  margin-bottom: 0.6rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* The pack shop: one offer per pack, side by side when there's room. */
+.cc-pack-offers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 1.2rem;
+}
+
+.cc-pack-art[data-pack="apex"] {
+  background: linear-gradient(155deg, #f0abfc 0%, #c084fc 35%, #7c3aed 70%, #3b1a6e 100%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 18px rgba(192, 132, 252, 0.55),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+/* Upgraded numbers: gold, with a soft glow. */
+.cc-num.cc-up {
+  color: #fcd34d;
+  text-shadow: 0 0 4cqw rgba(252, 211, 77, 0.75), 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* Level and XP in the profile bar. */
+.cc-level-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+}
+
+.cc-level {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--win);
+}
+
+.cc-xp-bar {
+  position: relative;
+  width: 4.5rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--cell-hover);
+  overflow: hidden;
+}
+
+.cc-xp-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--win);
+  border-radius: 999px;
+}
+
+.cc-xp-text {
+  font-size: 0.75rem;
+}
+
+.cc-result-xp {
+  margin: -0.3rem 0 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.cc-result-xp.cc-level-up {
+  color: var(--win);
+  font-weight: 800;
+}
+
+/* Upgrading a copy (collection close-up). */
+.cc-upgrade {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--cell-hover);
+  text-align: left;
+}
+
+.cc-upgrade-title {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+}
+
+.cc-upgrade-copies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.4rem 0;
+}
+
+.cc-upgrade-copies .cc-hand-card {
+  flex: 0 0 3.6rem;
+}
+
+.cc-upgrade-sides {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+  margin: 0.4rem 0;
+}
+
+.cc-upgrade-sides .size-option {
+  padding: 0.5rem 0.3rem;
+  font-size: 0.85rem;
+}
+
+.cc-upgrade-sides .size-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cc-upgrade-cost {
+  margin: 0.2rem 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.cc-upgrade .reset-btn {
+  width: 100%;
+}
+
+/* The WildFlip logo beside the title. */
+.cc-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.cc-logo {
+  width: 1.3em;
+  height: 1.3em;
 }

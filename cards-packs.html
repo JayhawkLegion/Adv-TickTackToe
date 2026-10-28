@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Card Packs - WildFlip</title>
+
+<link rel="manifest" href="wildflip.webmanifest">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WildFlip">
+<link rel="apple-touch-icon" href="icons/wildflip-apple-touch.png">
+
+<link rel="icon" href="icons/wildflip.svg" type="image/svg+xml">
+<link rel="alternate icon" href="icons/wildflip-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game cc-page">
+    <h1>Card Packs</h1>
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <div id="noPlayer" hidden>
+      <p class="cc-note">No player yet. Start WildFlip to create one and get your starter cards and coins.</p>
+    </div>
+
+    <div id="shop" hidden>
+      <div class="cc-wallet">🪙 <strong id="coinBalance">0</strong> coins</div>
+
+      <!-- The packs for sale (one offer each, built by cards-packs.js) -->
+      <div id="offers" class="cc-pack-offers"></div>
+
+      <!-- Opening a pack -->
+      <section id="opening" hidden>
+        <div id="openingArt" class="cc-pack-art cc-pack-tear" aria-hidden="true">
+          <span class="cc-pack-brand">WildFlip</span>
+          <span id="openingIcon" class="cc-pack-icon">🐾</span>
+        </div>
+        <div id="packCards" class="cc-pack-cards" role="group" aria-label="Cards in this pack"></div>
+        <p id="openHint" class="settings-hint">Tap a card to turn it over.</p>
+        <div class="cc-form-actions">
+          <button id="revealAllBtn" type="button" class="reset-btn cc-secondary">Reveal All</button>
+          <button id="againBtn" type="button" class="reset-btn" hidden></button>
+          <button id="doneBtn" type="button" class="reset-btn cc-secondary" hidden>Done</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="settings-actions cc-admin-back cc-form-actions">
+      <a href="cards-collection.html" class="reset-btn cc-btn-link cc-secondary">Collection</a>
+      <a href="cards.html" class="reset-btn cc-btn-link">Back to Game</a>
+    </div>
+  </main>
+
+  <script src="cards-pool.js"></script>
+  <script src="cards-rules.js"></script>
+  <script src="cards-data.js"></script>
+  <script src="cards-cloud-config.js"></script>
+  <script src="cards-online.js"></script>
+  <script src="cards-store.js"></script>
+  <script src="cards-packs.js"></script>
+</body>
+</html>

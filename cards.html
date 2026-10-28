@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>WildFlip</title>
+
+<link rel="manifest" href="wildflip.webmanifest">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WildFlip">
+<link rel="apple-touch-icon" href="icons/wildflip-apple-touch.png">
+
+<link rel="icon" href="icons/wildflip.svg" type="image/svg+xml">
+<link rel="alternate icon" href="icons/wildflip-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game cc-page">
+    <div class="title-row">
+      <div class="menu-wrap">
+        <button id="menuBtn" class="menu-btn" aria-label="Menu" aria-expanded="false" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" class="menu-icon" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/></svg>
+        </button>
+        <div id="menuDropdown" class="menu-dropdown" hidden>
+          <a href="index.html" class="menu-item" data-page="index.html">Tic-Tac-Toe</a>
+          <a href="fence.html" class="menu-item" data-page="fence.html">Fence</a>
+          <a href="connect4.html" class="menu-item" data-page="connect4.html">Connect 4</a>
+          <a href="cards.html" class="menu-item" data-page="cards.html">WildFlip</a>
+        </div>
+      </div>
+
+      <h1 class="cc-title"><img src="icons/wildflip.svg" alt="" class="cc-logo" width="34" height="34">WildFlip</h1>
+      <a href="cards-settings.html" class="settings-link" aria-label="Settings">
+        <svg viewBox="0 0 24 24" class="gear-icon" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94a7.14 7.14 0 0 0 .06-.94 7.14 7.14 0 0 0-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.55-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.14 7.14 0 0 0-.06.94c0 .32.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.42.32.6.22l2.39-.96c.49.39 1.03.7 1.62.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.59-.24 1.13-.55 1.62-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>
+      </a>
+    </div>
+
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <!-- New player -->
+    <section id="setupView" class="cc-view" hidden>
+      <p id="setupNote" class="cc-note">Enter your name to create your player. You'll start with 5 random cards.</p>
+      <form id="setupForm" class="cc-form">
+        <input id="nameInput" class="cc-input" type="text" maxlength="20" placeholder="Your name" autocomplete="off" required>
+        <button type="submit" class="reset-btn">Start</button>
+      </form>
+      <div id="setupCloud" class="cc-setup-cloud" hidden>
+        <p class="cc-or"><span>or</span></p>
+        <p id="setupCloudText" class="settings-hint"></p>
+        <div id="setupCloudActions" class="cc-cloud-actions"></div>
+      </div>
+    </section>
+
+    <!-- Choose a hand -->
+    <section id="deckView" class="cc-view" hidden>
+      <div class="cc-profile">
+        <div class="cc-profile-name">
+          <strong id="deckName"></strong>
+          <span id="deckRecord" class="cc-muted"></span>
+          <div class="cc-level-row">
+            <span id="deckLevel" class="cc-level"></span>
+            <span id="deckXpBar" class="cc-xp-bar" role="progressbar" aria-valuemin="0"><span></span></span>
+            <span id="deckXp" class="cc-muted cc-xp-text"></span>
+          </div>
+          <a id="cloudBadge" href="cards-settings.html" class="cc-cloud-badge" hidden></a>
+        </div>
+        <div class="cc-profile-links">
+          <a href="cards-packs.html" class="cc-link">🪙 <span id="deckCoins">0</span> · Packs</a>
+          <a href="cards-collection.html" class="cc-link">Collection &amp; Stats</a>
+        </div>
+      </div>
+      <p id="deckNotice" class="cc-notice" hidden></p>
+
+      <div id="pickTabs" class="size-options cc-tabs" role="tablist" aria-label="Choose your hand from">
+        <button type="button" role="tab" class="size-option selected" data-tab="cards" aria-selected="true">Cards</button>
+        <button type="button" role="tab" class="size-option" data-tab="decks" aria-selected="false">My Decks (<span id="savedDeckCount">0</span>)</button>
+      </div>
+
+      <!-- Pick individual cards -->
+      <div id="cardsTab" role="tabpanel">
+        <p id="editingNote" class="cc-notice" hidden></p>
+        <div class="cc-pick-tools">
+          <div id="rarityFilter" class="size-options cc-filter" role="group" aria-label="Show cards of rarity"></div>
+          <select id="sortSelect" class="cc-select cc-sort" aria-label="Sort cards">
+            <option value="number">Card number</option>
+            <option value="strength">Strongest first</option>
+            <option value="rarity">Rarest first</option>
+          </select>
+        </div>
+        <div id="deckGrid" class="cc-grid" role="group" aria-label="Your collection"></div>
+        <div id="saveDeckRow" class="cc-save-deck" hidden>
+          <input id="deckNameInput" class="cc-input" type="text" maxlength="20" autocomplete="off" aria-label="Deck name">
+          <button id="saveDeckBtn" type="button" class="reset-btn cc-secondary">Save as Deck</button>
+          <button id="cancelEditBtn" type="button" class="reset-btn cc-secondary" hidden>Cancel</button>
+        </div>
+      </div>
+
+      <!-- Pick a saved deck -->
+      <div id="decksTab" role="tabpanel" hidden>
+        <p id="noDecks" class="cc-note">No saved decks yet. Pick 5 cards on the Cards tab, name them and tap Save as Deck.</p>
+        <div id="savedDeckList" class="cc-deck-list"></div>
+      </div>
+
+      <div class="cc-play-actions">
+        <button id="playBtn" class="reset-btn cc-play-btn" disabled>Play the Computer</button>
+        <button id="findBtn" class="reset-btn cc-play-btn cc-secondary" hidden disabled>Find a Player</button>
+      </div>
+      <details class="cc-rules">
+        <summary>How to play</summary>
+        <ul>
+          <li>A coin toss decides who goes first. The first player's cards are <span class="cc-red-text">Red</span>, the other player's are <span class="cc-blue-text">Blue</span>.</li>
+          <li>Take turns placing a card from your hand on any empty square.</li>
+          <li>When you place a card, any touching opponent card whose facing number is lower than your card's number on that side flips to your color. One card can flip several at once.</li>
+          <li id="scoreRule"></li>
+          <li>Win, and you may add a copy of one of your opponent's cards that ended in your color to your collection. Cards you don't have yet are marked NEW.</li>
+          <li id="strikeRule"></li>
+          <li id="clockRule"></li>
+          <li id="levelRule"></li>
+          <li id="upgradeRule"></li>
+          <li id="coinRule"></li>
+        </ul>
+      </details>
+    </section>
+
+    <!-- Looking for another player -->
+    <section id="queueView" class="cc-view cc-queue" hidden>
+      <div class="cc-queue-cards" aria-hidden="true"><span></span><span></span><span></span></div>
+      <p id="queueText" class="cc-note"></p>
+      <div class="cc-form-actions">
+        <button id="cpuInsteadBtn" class="reset-btn" hidden>Play the Computer Instead</button>
+        <button id="cancelQueueBtn" class="reset-btn cc-secondary">Cancel</button>
+      </div>
+    </section>
+
+    <!-- Game in progress / finished -->
+    <section id="playView" class="cc-view" hidden>
+      <div id="oppSide" class="cc-side">
+        <div class="cc-bar">
+          <span id="oppLabel" class="cc-who"></span>
+          <span id="oppTimer" class="cc-timer" hidden></span>
+          <strong id="oppScore" class="cc-score"></strong>
+        </div>
+        <div id="oppHand" class="cc-hand" aria-label="Opponent's hand"></div>
+      </div>
+
+      <div id="ccBoard" class="cc-board" role="grid" aria-label="Card board"></div>
+
+      <div id="youSide" class="cc-side">
+        <div id="youHand" class="cc-hand" aria-label="Your hand"></div>
+        <div class="cc-bar">
+          <span id="youLabel" class="cc-who"></span>
+          <span id="youTimer" class="cc-timer" hidden></span>
+          <strong id="youScore" class="cc-score"></strong>
+        </div>
+        <button id="resignBtn" type="button" class="cc-link-btn cc-resign">Resign</button>
+      </div>
+
+      <div id="resultPanel" class="cc-result" hidden>
+        <p id="resultScore" class="cc-result-score"></p>
+        <p id="resultCoins" class="cc-result-coins" hidden></p>
+        <p id="resultXp" class="cc-result-xp" hidden></p>
+        <div id="resultStrikes" class="cc-result-strikes" hidden></div>
+        <p id="resultText" class="cc-note"></p>
+        <div id="claimChoices" class="cc-hand" role="group" aria-label="Cards you can claim"></div>
+        <button id="claimBtn" class="reset-btn" hidden disabled>Add to Collection</button>
+        <div class="cc-form-actions">
+          <button id="againBtn" class="reset-btn" hidden>Play Again</button>
+          <a id="packsLink" href="cards-packs.html" class="reset-btn cc-btn-link cc-secondary" hidden></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="menu.js"></script>
+  <script src="cards-pool.js"></script>
+  <script src="cards-rules.js"></script>
+  <script src="cards-data.js"></script>
+  <script src="cards-cloud-config.js"></script>
+  <script src="cards-online.js"></script>
+  <script src="cards-store.js"></script>
+  <script src="cards.js"></script>
+</body>
+</html>
