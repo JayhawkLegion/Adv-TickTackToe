@@ -121,8 +121,9 @@ document.getElementById("clockRule").textContent =
   `and running out ${MAX_TIMEOUTS === 2 ? "twice" : `${MAX_TIMEOUTS} times`} in a row forfeits the game.`;
 document.getElementById("levelRule").textContent =
   "Every finished game earns experience (XP), more for a win and more against people. As your level rises, " +
-  "the computer makes fewer mistakes and its cards get upgrades. It always plays cards like yours, never " +
-  "stronger, and a card you claim from it comes without its upgrades.";
+  "the computer makes fewer mistakes and gets more boosts. It plays low common cards boosted (gold numbers) to " +
+  "match yours, so a card you claim from it is always a plain low common. Rarer cards come from packs and from " +
+  "beating other players.";
 document.getElementById("upgradeRule").textContent =
   `Upgrade a card in Collection & Stats: use duplicate copies to raise one side of a copy by 1 ` +
   `(each side once, up to ${UPGRADE_MAX} upgrades). Upgrades stay with that copy; a card someone claims ` +
@@ -196,9 +197,28 @@ async function run(action, pendingText) {
 // --- Choose a hand ---
 function showDeck(notice) {
   showView("deck");
+  // Wake the online server now, so the game starts without a cold-start wait.
+  CardStore.warmUp();
   renderProfileBar();
   deckNoticeEl.hidden = !notice;
   deckNoticeEl.textContent = notice || "";
+  // New players are offered the tour until they've taken it or played.
+  let toured = true;
+  try {
+    toured = Boolean(localStorage.getItem("wildflipTourDone"));
+  } catch {
+    // Storage blocked: don't nag.
+  }
+  if (!toured && !profile.stats.played) {
+    deckNoticeEl.hidden = false;
+    if (notice) deckNoticeEl.append(" ");
+    deckNoticeEl.append("New to WildFlip? ");
+    const link = document.createElement("a");
+    link.href = "cards-tour.html";
+    link.className = "cc-link";
+    link.textContent = "Take the 2-minute tour";
+    deckNoticeEl.append(link, ".");
+  }
 
   const collection = playableCollection(profile);
   const owned = new Set(collection.map((c) => c.uid));
@@ -713,11 +733,14 @@ function showMove(move) {
     game.note = "";
     setStatus(`${lead}${game.oppName} is thinking…`, game.colors[game.opp]);
     renderSides();
+    // Time already spent waiting for the server counts as thinking time.
+    const waited = game.sentAt ? Date.now() - game.sentAt : 0;
+    game.sentAt = 0;
     game.wait = setTimeout(() => {
       game.oppPick = oppHandCount() - 1;
       renderHand("opp");
       game.wait = setTimeout(place, CPU_SHOW_PICK_MS);
-    }, CPU_THINK_MS);
+    }, Math.max(0, CPU_THINK_MS - waited));
   } else {
     place();
   }
@@ -872,6 +895,7 @@ async function playMine(card, slot) {
   const color = game.colors[game.seat];
   const flips = findFlips(game.board, slot, card.cardId, color, card.boost);
   game.pending = { slot, cardId: card.cardId, uid: card.uid };
+  game.sentAt = Date.now();
   game.selected = null;
   applyMove(game.board, { seat: game.seat, slot, cardId: card.cardId, flips, ...(card.boost ? { boost: card.boost } : {}) });
   renderBoard(slot, flips);

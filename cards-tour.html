@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Tour - WildFlip</title>
+
+<link rel="manifest" href="wildflip.webmanifest">
+<meta name="theme-color" content="#1e1f29">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WildFlip">
+<link rel="apple-touch-icon" href="icons/wildflip-apple-touch.png">
+
+<link rel="icon" href="icons/wildflip.svg" type="image/svg+xml">
+<link rel="alternate icon" href="icons/wildflip-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game cc-page cc-tour">
+    <h1 class="cc-title"><img src="icons/wildflip.svg" alt="" class="cc-logo" width="34" height="34">WildFlip Tour</h1>
+    <div id="tourDots" class="cc-tour-dots" aria-hidden="true"></div>
+
+    <section class="cc-coach" aria-live="polite">
+      <h2 id="coachTitle" class="cc-coach-title"></h2>
+      <p id="coachText" class="cc-coach-text"></p>
+    </section>
+
+    <div id="stage" class="cc-tour-stage"></div>
+
+    <div class="cc-form-actions cc-tour-nav">
+      <button id="backBtn" type="button" class="reset-btn cc-secondary">Back</button>
+      <button id="nextBtn" type="button" class="reset-btn">Next</button>
+    </div>
+    <p class="cc-tour-skip"><a href="cards.html" id="skipLink" class="cc-link">Skip the tour</a></p>
+  </main>
+
+  <script src="cards-pool.js"></script>
+  <script src="cards-rules.js"></script>
+  <script src="cards-data.js"></script>
+  <script src="cards-tour.js"></script>
+</body>
+</html>

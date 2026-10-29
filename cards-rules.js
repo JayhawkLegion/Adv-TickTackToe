@@ -37,7 +37,7 @@ const CardRules = (() => {
   const STARTING_COINS = 100;
   const COIN_REWARDS = {
     cpu: { win: 3, draw: 2, loss: 1 },
-    live: { win: 30, draw: 15, loss: 10 },
+    live: { win: 10, draw: 6, loss: 3 },
   };
 
   // Strikes (live games only): a card of the losing player that ends the game
@@ -78,8 +78,8 @@ const CardRules = (() => {
   // forfeit). Going from level n to n + 1 takes LEVEL_XP_STEP × n XP, so
   // levels come more slowly as they rise.
   const XP_REWARDS = {
-    cpu: { win: 10, draw: 7, loss: 5 },
-    live: { win: 20, draw: 15, loss: 10 },
+    cpu: { win: 5, draw: 3, loss: 2 },
+    live: { win: 10, draw: 7, loss: 5 },
   };
   const LEVEL_XP_STEP = 50;
   const MAX_LEVEL = 50;
@@ -89,9 +89,14 @@ const CardRules = (() => {
   // cards get upgrades: one more every CPU_LEVELS_PER_UPGRADE levels.
   const CPU_MISTAKES = [0.4, 0.3, 0.2, 0.1];
   const CPU_LEVELS_PER_UPGRADE = 2;
-  // Its cards copy the rarity of the player's and total the same or up to
-  // this much less, so a win never claims anything stronger than you brought.
-  const CPU_MIRROR_RANGE = 2;
+  // The computer only ever plays plain commons, picked at least
+  // CPU_BASE_GAP below the total of the player's card they stand against,
+  // then boosted (the gold numbers) until each is about as strong as that
+  // card: the same total or up to CPU_MIRROR_RANGE less. Its strength comes
+  // from boosts, so a win only ever claims a low common card; rarer cards
+  // come from packs and from beating other players.
+  const CPU_BASE_GAP = 3;
+  const CPU_MIRROR_RANGE = 1;
 
   // Find a Player pairs players whose levels and hand strength (the total of
   // the hand's numbers, upgrades included) are close; the allowed gaps widen
@@ -656,31 +661,35 @@ const CardRules = (() => {
     };
   }
 
-  // The computer's hand against the player's `hand`: for each of the
-  // player's cards, a random card of the same rarity whose plain total is the
-  // same or up to CPU_MIRROR_RANGE less, then the difficulty's upgrades, one
-  // at a time on a random card and side. [{ uid, cardId, boost? }]
+  // The computer's hand against the player's `hand` (see CPU_BASE_GAP): for
+  // each of the player's cards, a random common whose plain total is at
+  // least CPU_BASE_GAP lower, boosted one point at a time on random sides up
+  // to about that card's plain total; then the difficulty's extra boosts.
+  // The player's own upgrades aren't matched, so they keep their edge.
+  // [{ uid, cardId, boost? }]
   function cpuHand(pool, hand, difficulty, { newId, rng = Math.random }) {
+    const commons = pool.cards.filter((card) => card.rarity === "common");
+    const lowest = Math.min(...commons.map(cardTotal));
     const cards = hand.map((c) => {
-      const base = pool.byId[c.cardId];
-      const total = cardTotal(base);
-      const lower = pool.cards.filter((card) => card.rarity === base.rarity && cardTotal(card) <= total);
-      const top = Math.max(...lower.map(cardTotal));
-      const picks = lower.filter((card) => cardTotal(card) >= top - CPU_MIRROR_RANGE);
-      return { uid: newId("x_"), cardId: picks.length ? randomItem(picks, rng).id : base.id };
+      const target = cardTotal(pool.byId[c.cardId]) - Math.floor(rng() * (CPU_MIRROR_RANGE + 1));
+      const below = commons.filter((card) => cardTotal(card) <= Math.max(lowest, target - CPU_BASE_GAP));
+      const top = Math.max(...below.map(cardTotal));
+      const base = randomItem(below.filter((card) => cardTotal(card) >= top - CPU_MIRROR_RANGE), rng);
+      const card = { uid: newId("x_"), cardId: base.id };
+      for (let n = cardTotal(base); n < target; n++) boostSide(pool, card, rng);
+      return card;
     });
-    for (let i = 0; i < difficulty.upgrades; i++) {
-      const options = [];
-      cards.forEach((card, index) => {
-        SIDES.forEach((side) => {
-          if (!raiseProblem(pool, card, side)) options.push({ index, side });
-        });
-      });
-      if (!options.length) break;
-      const { index, side } = randomItem(options, rng);
-      cards[index].boost = { ...(cards[index].boost || {}), [side]: 1 };
-    }
+    for (let i = 0; i < difficulty.upgrades; i++) boostSide(pool, randomItem(cards, rng), rng);
     return cards;
+  }
+
+  // +1 on a random side of the computer's card still under SIDE_LIMIT.
+  function boostSide(pool, card, rng) {
+    const sides = sidesOf(pool, card.cardId, card.boost);
+    const open = SIDES.filter((side) => sides[side] < SIDE_LIMIT);
+    if (!open.length) return;
+    const side = randomItem(open, rng);
+    card.boost = { ...(card.boost || {}), [side]: ((card.boost && card.boost[side]) || 0) + 1 };
   }
 
   // How well two waiting players match (lower is better), or null if they're
@@ -853,7 +862,7 @@ const CardRules = (() => {
     RARITY_ORDER, RARITIES, DEFAULT_RARITY_CHANCES, SIDES, HAND_SIZE, STARTER_SIZE, MAX_DECKS, DECK_NAME_LENGTH,
     NAME_LENGTH, HISTORY_LIMIT, STARTING_COINS, COIN_REWARDS, STRIKES_TO_LOSE, TURN_SECONDS, MAX_TIMEOUTS, SCORING,
     DEFAULT_PACKS, PACK_LIMITS, CPU_NAMES, PLAY_STYLES, BUILT_IN_BY_ID, OTHER_SET, SETS_BY_ID, CARD_SETS: SETS,
-    UPGRADE_MAX, UPGRADE_COSTS, SIDE_LIMIT, XP_REWARDS, MAX_LEVEL, CPU_MIRROR_RANGE,
+    UPGRADE_MAX, UPGRADE_COSTS, SIDE_LIMIT, XP_REWARDS, MAX_LEVEL, CPU_MIRROR_RANGE, CPU_BASE_GAP,
     sidesOf, handPower, upgradesOf, raiseProblem, upgradeCost, upgradeFodder, upgradeCopy,
     xpForLevel, levelFor, levelProgress, cpuDifficulty, cpuHand, matchGap,
     isValidCard, cleanCard, sameCard, upgradeId, upgradeCard, upgradeChances, chancesTotal, isValidChances,
