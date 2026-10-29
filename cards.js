@@ -121,8 +121,9 @@ document.getElementById("clockRule").textContent =
   `and running out ${MAX_TIMEOUTS === 2 ? "twice" : `${MAX_TIMEOUTS} times`} in a row forfeits the game.`;
 document.getElementById("levelRule").textContent =
   "Every finished game earns experience (XP), more for a win and more against people. As your level rises, " +
-  "the computer makes fewer mistakes and its cards get upgrades. It always plays cards like yours, never " +
-  "stronger, and a card you claim from it comes without its upgrades.";
+  "the computer makes fewer mistakes and gets more boosts. It plays low common cards boosted (gold numbers) to " +
+  "match yours, so a card you claim from it is always a plain low common. Rarer cards come from packs and from " +
+  "beating other players.";
 document.getElementById("upgradeRule").textContent =
   `Upgrade a card in Collection & Stats: use duplicate copies to raise one side of a copy by 1 ` +
   `(each side once, up to ${UPGRADE_MAX} upgrades). Upgrades stay with that copy; a card someone claims ` +

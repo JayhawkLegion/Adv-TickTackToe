@@ -385,7 +385,7 @@ const STEPS = [
         "That's everything. A few more tips:");
       const list = el("ul", "cc-tour-list");
       [
-        "Every game earns XP. As your level rises, the computer plays better and its cards get upgrades, but it never uses stronger cards than yours.",
+        "Every game earns XP. As your level rises, the computer plays better and its cards get upgrades, It plays low commons boosted with gold numbers, so cards you win from it are always low commons. For rarer cards, open packs and play other people.",
         "Against other players (Find a Player, once signed in), a card that ends a lost game in the winner's color gets a strike. Three strikes and that copy is gone.",
         "How to play, under the Play buttons, has all the rules. You can take this tour again from there.",
       ].forEach((t) => list.appendChild(el("li", "", t)));
