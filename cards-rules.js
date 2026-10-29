@@ -59,11 +59,31 @@ const CardRules = (() => {
   // Standard Pack is common and rare only; the Apex Pack adds a 20% epic
   // chance per card, keeping the Standard Pack's 70:30 common-to-rare mix
   // for the rest.
+  // `level` is the player level a pack unlocks at: the Apex Pack, the first
+  // way to Epic cards, opens at level 5.
   const DEFAULT_PACKS = [
-    { id: "standard", name: "Standard Pack", price: 100, size: 3, odds: { common: 70, rare: 30, epic: 0, legendary: 0 } },
-    { id: "apex", name: "Apex Pack", price: 500, size: 5, odds: { common: 56, rare: 24, epic: 20, legendary: 0 } },
+    { id: "standard", name: "Standard Pack", price: 100, size: 3, level: 1, odds: { common: 70, rare: 30, epic: 0, legendary: 0 } },
+    { id: "apex", name: "Apex Pack", price: 500, size: 5, level: 5, odds: { common: 56, rare: 24, epic: 20, legendary: 0 } },
   ];
   const PACK_LIMITS = { nameLength: 24, maxPrice: 100000, maxSize: 10 };
+
+  // Card releases: cards come out in groups as players level up. Until a
+  // player reaches a group's level, its cards aren't in their packs, starter
+  // cards or the computer's hands; they can only be won from other players
+  // (who are matched close in level). Each group is [highest card total,
+  // level], checked in order, so within a rarity the stronger cards come
+  // later. Level 5 brings the first Epics; Legendary cards arrive at level 10.
+  const RELEASES = {
+    common: [[Infinity, 1]],
+    rare: [[9, 1], [11, 2], [13, 3], [Infinity, 4]],
+    epic: [[17, 5], [18, 6], [19, 7], [Infinity, 8]],
+    legendary: [[Infinity, 10]],
+  };
+  // And at each level past 1, packs hold fewer commons: the common share
+  // shrinks by COMMON_FADE (to no less than COMMON_FLOOR of it), shared out
+  // over the pack's other rarities.
+  const COMMON_FADE = 0.03;
+  const COMMON_FLOOR = 0.5;
 
   // Upgrades: duplicates of a card can be spent to raise one side of one copy
   // by 1. Each side can be raised once, up to UPGRADE_MAX upgrades per copy;
@@ -101,7 +121,10 @@ const CardRules = (() => {
   // Find a Player pairs players whose levels and hand strength (the total of
   // the hand's numbers, upgrades included) are close; the allowed gaps widen
   // every MATCH_WIDEN_MS that either player has waited.
+  // The level gap never widens past MATCH_LEVEL_GAP_MAX, so cards a player
+  // hasn't unlocked only reach them from players near their own level.
   const MATCH_LEVEL_GAP = 3;
+  const MATCH_LEVEL_GAP_MAX = 5;
   const MATCH_POWER_GAP = 8;
   const MATCH_WIDEN_MS = 10000;
 
@@ -176,13 +199,49 @@ const CardRules = (() => {
         typeof pack.name === "string" && pack.name.trim() && pack.name.trim().length <= PACK_LIMITS.nameLength &&
         Number.isInteger(pack.price) && pack.price >= 1 && pack.price <= PACK_LIMITS.maxPrice &&
         Number.isInteger(pack.size) && pack.size >= 1 && pack.size <= PACK_LIMITS.maxSize &&
+        (pack.level === undefined || (Number.isInteger(pack.level) && pack.level >= 1 && pack.level <= MAX_LEVEL)) &&
         isValidChances(pack.odds)
     );
   }
 
   function cleanPack(pack) {
     const { id, name, price, size, odds } = pack;
-    return { id, name: name.trim(), price, size, odds: Object.fromEntries(RARITY_ORDER.map((r) => [r, odds[r]])) };
+    const level = pack.level || 1;
+    return { id, name: name.trim(), price, size, level, odds: Object.fromEntries(RARITY_ORDER.map((r) => [r, odds[r]])) };
+  }
+
+  // --- Releases by level ---
+  // The level a card is released at (see RELEASES).
+  function releaseLevel(card) {
+    const groups = RELEASES[card.rarity] || [[Infinity, 1]];
+    const total = cardTotal(card);
+    return groups.find(([max]) => total <= max)[1];
+  }
+
+  // The pool as a player of `level` draws from it: only released cards. (It
+  // still knows every card, for showing ones they own or play against.)
+  function releasedPool(pool, level) {
+    return { ...pool, cards: pool.cards.filter((card) => releaseLevel(card) <= level) };
+  }
+
+  // A pack's odds for a player of `level`: fewer commons as levels rise.
+  function levelOdds(odds, level) {
+    const others = RARITY_ORDER.filter((r) => r !== "common" && odds[r] > 0);
+    const rest = others.reduce((sum, r) => sum + odds[r], 0);
+    if (!odds.common || !rest) return { ...odds };
+    const keep = Math.max(COMMON_FLOOR, 1 - COMMON_FADE * (level - 1));
+    const moved = odds.common * (1 - keep);
+    const result = { ...odds, common: odds.common * keep };
+    others.forEach((r) => {
+      result[r] = odds[r] + (moved * odds[r]) / rest;
+    });
+    return result;
+  }
+
+  // The chance of each rarity in `pack` for a player of `level`, counting
+  // only the cards released to them.
+  function packChances(pool, pack, level) {
+    return effectiveChances(levelOdds(pack.odds, level), releasedPool(pool, level).cards);
   }
 
   // The playable pool: built-in cards, overridden or extended by the Card
@@ -212,7 +271,8 @@ const CardRules = (() => {
       // A saved pack replaces the default with the same id; invalid ones are ignored.
       packs: DEFAULT_PACKS.map((def) => {
         const saved = (packs || []).find((p) => p && p.id === def.id);
-        return isValidPack(saved) ? cleanPack(saved) : cleanPack(def);
+        // Packs saved before unlock levels existed keep the default's.
+        return isValidPack(saved) ? cleanPack({ level: def.level, ...saved }) : cleanPack(def);
       }),
     };
   }
@@ -518,7 +578,9 @@ const CardRules = (() => {
       createdAt: now,
       coins: STARTING_COINS,
       xp: 0,
-      collection: randomCards(pool, STARTER_SIZE, pool.chances, rng).map((cardId) => makeOwnedCard(cardId, "starter", newId, now)),
+      // Starter cards come from the level-1 releases.
+      collection: randomCards(releasedPool(pool, 1), STARTER_SIZE, pool.chances, rng)
+        .map((cardId) => makeOwnedCard(cardId, "starter", newId, now)),
       stats: emptyStats(),
       cardStats: {},
       history: [],
@@ -668,7 +730,7 @@ const CardRules = (() => {
   // The player's own upgrades aren't matched, so they keep their edge.
   // [{ uid, cardId, boost? }]
   function cpuHand(pool, hand, difficulty, { newId, rng = Math.random }) {
-    const commons = pool.cards.filter((card) => card.rarity === "common");
+    const commons = releasedPool(pool, difficulty.level).cards.filter((card) => card.rarity === "common");
     const lowest = Math.min(...commons.map(cardTotal));
     const cards = hand.map((c) => {
       const target = cardTotal(pool.byId[c.cardId]) - Math.floor(rng() * (CPU_MIRROR_RANGE + 1));
@@ -698,7 +760,7 @@ const CardRules = (() => {
     const widen = Math.floor(Math.max(now - a.since, now - b.since, 0) / MATCH_WIDEN_MS);
     const levels = Math.abs(a.level - b.level);
     const power = Math.abs(a.power - b.power);
-    if (levels > MATCH_LEVEL_GAP + widen || power > MATCH_POWER_GAP + widen * 3) return null;
+    if (levels > Math.min(MATCH_LEVEL_GAP + widen, MATCH_LEVEL_GAP_MAX) || power > MATCH_POWER_GAP + widen * 3) return null;
     return levels * 10 + power;
   }
 
@@ -840,13 +902,23 @@ const CardRules = (() => {
     return owned;
   }
 
-  // Buys and opens a pack. Returns the drawn cards, each { cardId, isNew }
-  // (new = no copy owned before; only the first copy counts), or null if the
-  // player can't afford it.
+  // Why the player can't open `pack` now, or "".
+  function packProblem(profile, pack) {
+    const level = levelFor(profile.xp);
+    if (level < (pack.level || 1)) return `The ${pack.name} unlocks at level ${pack.level}.`;
+    if (profile.coins < pack.price) return "You don't have enough coins for that pack.";
+    return "";
+  }
+
+  // Buys and opens a pack, drawing from the cards released at the player's
+  // level with that level's odds. Returns the drawn cards, each
+  // { cardId, isNew } (new = no copy owned before; only the first copy
+  // counts), or null if they can't open it (packProblem).
   function openPack(pool, profile, pack, { newId, rng = Math.random, now = Date.now() }) {
-    if (profile.coins < pack.price) return null;
+    if (packProblem(profile, pack)) return null;
+    const level = levelFor(profile.xp);
     const ownedBefore = new Set(profile.collection.map((owned) => owned.cardId));
-    const cardIds = randomCards(pool, pack.size, pack.odds, rng);
+    const cardIds = randomCards(releasedPool(pool, level), pack.size, levelOdds(pack.odds, level), rng);
     profile.coins -= pack.price;
     profile.stats.coinsSpent += pack.price;
     profile.stats.packsOpened++;
@@ -863,6 +935,7 @@ const CardRules = (() => {
     NAME_LENGTH, HISTORY_LIMIT, STARTING_COINS, COIN_REWARDS, STRIKES_TO_LOSE, TURN_SECONDS, MAX_TIMEOUTS, SCORING,
     DEFAULT_PACKS, PACK_LIMITS, CPU_NAMES, PLAY_STYLES, BUILT_IN_BY_ID, OTHER_SET, SETS_BY_ID, CARD_SETS: SETS,
     UPGRADE_MAX, UPGRADE_COSTS, SIDE_LIMIT, XP_REWARDS, MAX_LEVEL, CPU_MIRROR_RANGE, CPU_BASE_GAP,
+    RELEASES, MATCH_LEVEL_GAP_MAX, releaseLevel, releasedPool, levelOdds, packChances, packProblem,
     sidesOf, handPower, upgradesOf, raiseProblem, upgradeCost, upgradeFodder, upgradeCopy,
     xpForLevel, levelFor, levelProgress, cpuDifficulty, cpuHand, matchGap,
     isValidCard, cleanCard, sameCard, upgradeId, upgradeCard, upgradeChances, chancesTotal, isValidChances,

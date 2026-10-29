@@ -208,8 +208,9 @@ exports.openPack = onCall(async (req) => {
   if (!pack) fail("not-found", "That pack isn't for sale.");
   return db.runTransaction(async (tx) => {
     const profile = await needProfile(tx, uid);
+    const problem = CardRules.packProblem(profile.data, pack);
+    if (problem) fail("failed-precondition", problem);
     const cards = CardRules.openPack(pool, profile.data, pack, { newId });
-    if (!cards) fail("failed-precondition", "You don't have enough coins for that pack.");
     writeProfile(tx, profile);
     return { cards };
   });

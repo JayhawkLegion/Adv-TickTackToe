@@ -27,7 +27,7 @@ let pack = PACKS[0]; // the pack being opened
 let drawn = []; // the open pack's cards: { cardId, isNew, revealed }
 let buying = false;
 
-const OFFER_STATUS = "Spend coins on packs of random cards.";
+const OFFER_STATUS = "Spend coins on packs of random cards. Leveling up unlocks stronger cards and fewer commons.";
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -59,28 +59,38 @@ function offerEl(p) {
     <span class="cc-pack-name">${escapeHtml(p.name)}</span>
     <span class="cc-pack-size">${p.size} cards</span>`;
 
+  // Packs unlock with levels, and their odds shift with the player's level.
+  const level = levelInfo(player.xp).level;
+  const locked = level < p.level;
+  if (locked) section.classList.add("cc-pack-locked");
   const buy = document.createElement("button");
   buy.type = "button";
   buy.className = "reset-btn";
   buy.dataset.buy = p.id;
-  buy.textContent = `Open ${p.name} (🪙 ${p.price.toLocaleString()})`;
+  buy.textContent = locked ? `🔒 Unlocks at level ${p.level}` : `Open ${p.name} (🪙 ${p.price.toLocaleString()})`;
   const short = p.price - player.coins;
-  buy.disabled = short > 0 || buying;
+  buy.disabled = locked || short > 0 || buying;
 
   const hint = document.createElement("p");
   hint.className = "settings-hint";
-  hint.textContent = short > 0
-    ? `You need ${short.toLocaleString()} more coins. Games against the computer pay ${rewardText("cpu")}; ` +
-      `against other players, ${rewardText("live")}.`
-    : `${p.size} random cards for ${p.price.toLocaleString()} coins.`;
+  if (locked) {
+    const epic = p.odds.epic > 0 ? " It's your first chance at Epic cards." : "";
+    hint.textContent = `You're level ${level}. Reach level ${p.level} to open the ${p.name}.${epic}`;
+  } else {
+    hint.textContent = short > 0
+      ? `You need ${short.toLocaleString()} more coins. Games against the computer pay ${rewardText("cpu")}; ` +
+        `against other players, ${rewardText("live")}.`
+      : `${p.size} random cards for ${p.price.toLocaleString()} coins.`;
+  }
 
-  // The real chance now: rarities with no cards yet can't be drawn, so their
-  // share goes to the others (same rule as every random draw).
-  const actual = effectiveChances(p.odds);
+  // The real chance at the player's level (or the pack's, while locked): only
+  // released cards can be drawn, and higher levels get fewer commons.
+  const oddsLevel = Math.max(level, p.level);
+  const actual = CardRules.packChances(POOL, p, oddsLevel);
   const table = document.createElement("table");
   table.className = "cc-sim-table cc-odds-table";
   table.innerHTML = `
-    <caption>Chance for each card in the pack</caption>
+    <caption>Chance for each card at level ${oddsLevel}</caption>
     <thead><tr><th scope="col">Rarity</th><th scope="col">Chance</th></tr></thead>`;
   const rows = document.createElement("tbody");
   RARITY_ORDER.filter((r) => p.odds[r] > 0 || actual[r] > 0).forEach((r) => {
@@ -102,7 +112,7 @@ function offerEl(p) {
     note.className = "settings-hint";
     note.textContent =
       `${empty.map((r) => `${RARITIES[r].label} (${p.odds[r]}%)`).join(" and ")} ` +
-      `${empty.length > 1 ? "have" : "has"} no cards yet, so ${empty.length > 1 ? "their share goes" : "its share goes"} to the other rarities.`;
+      `${empty.length > 1 ? "have" : "has"} no cards released yet, so ${empty.length > 1 ? "their share goes" : "its share goes"} to the other rarities.`;
     section.appendChild(note);
   }
   return section;

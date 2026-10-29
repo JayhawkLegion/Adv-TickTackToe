@@ -2548,3 +2548,14 @@ div.cc-hand-card {
   display: inline-block;
   margin: 0.3rem 0 0.6rem;
 }
+
+/* Levels: cards not released yet, and packs not unlocked yet. */
+.cc-unfound-lock {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cc-pack-locked .cc-pack-art {
+  filter: grayscale(0.7) brightness(0.7);
+}

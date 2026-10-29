@@ -200,11 +200,14 @@ function collectionItem(card, count) {
   return item;
 }
 
+// Cards not released at the player's level also show a lock and the level.
 function unfoundCardEl(card) {
   const el = document.createElement("div");
   el.className = "cc-card-unfound";
   el.style.setProperty("--rarity-color", RARITIES[card.rarity].color);
-  el.innerHTML = `<span class="cc-unfound-no">#${card.no}</span><span class="cc-unfound-rarity">${RARITIES[card.rarity].label}</span>`;
+  const unlock = CardRules.releaseLevel(card);
+  const lock = unlock > levelInfo(player.xp).level ? `<span class="cc-unfound-lock">🔒 Lv ${unlock}</span>` : "";
+  el.innerHTML = `<span class="cc-unfound-no">#${card.no}</span><span class="cc-unfound-rarity">${RARITIES[card.rarity].label}</span>${lock}`;
   return el;
 }
 
@@ -236,7 +239,10 @@ function showCloseup(cardId) {
     closeupCardEl.appendChild(unfoundCardEl(card));
     closeupTitleEl.textContent = `#${card.no} · Not found yet`;
     closeupMetaEl.innerHTML = `<span style="color: ${rarity.color}">${rarity.label}</span> · ${set.icon} ${escapeHtml(set.name)}`;
-    closeupNoteEl.textContent = "Find it in a card pack, or capture it from an opponent and claim it after a win.";
+    const unlock = CardRules.releaseLevel(card);
+    closeupNoteEl.textContent = unlock > levelInfo(player.xp).level
+      ? `Unlocks at level ${unlock}. Until then it isn't in your packs, but you can win it from another player near your level.`
+      : "Find it in a card pack, or capture it from an opponent and claim it after a win.";
   } else {
     closeupCardEl.appendChild(createCardEl(card.id));
     closeupTitleEl.textContent = card.name;

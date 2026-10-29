@@ -123,7 +123,8 @@ document.getElementById("levelRule").textContent =
   "Every finished game earns experience (XP), more for a win and more against people. As your level rises, " +
   "the computer makes fewer mistakes and gets more boosts. It plays low common cards boosted (gold numbers) to " +
   "match yours, so a card you claim from it is always a plain low common. Rarer cards come from packs and from " +
-  "beating other players.";
+  "beating other players. Levels also unlock cards: stronger Rares as you climb, the first Epic cards (and the " +
+  "Apex Pack) at level 5, and Legendary cards at level 10. Packs hold fewer commons at higher levels.";
 document.getElementById("upgradeRule").textContent =
   `Upgrade a card in Collection & Stats: use duplicate copies to raise one side of a copy by 1 ` +
   `(each side once, up to ${UPGRADE_MAX} upgrades). Upgrades stay with that copy; a card someone claims ` +
@@ -1004,6 +1005,19 @@ function renderResultCoins() {
   renderResultXp();
 }
 
+// "Unlocked: 134 Rare cards and the Apex Pack. " for reaching `level`.
+function unlockedText(level) {
+  const counts = {};
+  CARD_POOL.filter((card) => CardRules.releaseLevel(card) === level).forEach((card) => {
+    counts[card.rarity] = (counts[card.rarity] || 0) + 1;
+  });
+  const parts = RARITY_ORDER.filter((r) => counts[r]).map((r) => `${counts[r]} ${RARITIES[r].label} cards`);
+  PACKS.filter((pack) => pack.level === level).forEach((pack) => parts.push(`the ${pack.name}`));
+  if (!parts.length) return "";
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
+  return `Unlocked: ${list}! `;
+}
+
 // XP from the game, and the level it leaves the player at. (A game you
 // resign or run out of time in earns none.)
 function renderResultXp() {
@@ -1015,7 +1029,8 @@ function renderResultXp() {
   const { level, into, needed } = levelInfo(profile.xp);
   const progress = needed === null ? "top level" : `${into} / ${needed} XP to level ${level + 1}`;
   resultXpEl.textContent = settled.levelUp
-    ? `⭐ +${settled.xp} XP · Level up! You're level ${settled.level}. The computer will play you a little harder.`
+    ? `⭐ +${settled.xp} XP · Level up! You're level ${settled.level}. ${unlockedText(settled.level)}` +
+      "The computer will play you a little harder."
     : `⭐ +${settled.xp} XP · Level ${level} · ${progress}`;
   resultXpEl.classList.toggle("cc-level-up", Boolean(settled.levelUp));
   resultXpEl.hidden = false;

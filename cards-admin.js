@@ -17,6 +17,7 @@ const packForm = document.getElementById("packForm");
 const packNameInput = document.getElementById("packNameInput");
 const packPriceInput = document.getElementById("packPriceInput");
 const packSizeInput = document.getElementById("packSizeInput");
+const packLevelInput = document.getElementById("packLevelInput");
 const packOddsTableEl = document.getElementById("packOddsTable");
 const packOddsTotalEl = document.getElementById("packOddsTotal");
 const packSummaryEl = document.getElementById("packSummary");
@@ -189,6 +190,7 @@ function readPack() {
     name: packNameInput.value.trim(),
     price: Number(packPriceInput.value),
     size: Number(packSizeInput.value),
+    level: Number(packLevelInput.value),
     odds: packOddsEditor.read(),
   };
 }
@@ -200,6 +202,8 @@ function updatePackForm() {
   if (!pack.name) problem = "Give the pack a name.";
   else if (!Number.isInteger(pack.price) || pack.price < 1 || pack.price > PACK_LIMITS.maxPrice) {
     problem = `The price must be a whole number of coins from 1 to ${PACK_LIMITS.maxPrice.toLocaleString()}.`;
+  } else if (!Number.isInteger(pack.level) || pack.level < 1 || pack.level > MAX_LEVEL) {
+    problem = `The unlock level must be a whole number from 1 to ${MAX_LEVEL}.`;
   }
   packErrorEl.hidden = !problem;
   packErrorEl.textContent = problem;
@@ -251,12 +255,13 @@ function showPack(pack) {
   packNameInput.value = pack.name;
   packPriceInput.value = pack.price;
   packSizeInput.value = pack.size;
+  packLevelInput.value = pack.level;
   packOddsEditor.show(pack.odds);
   updatePackForm();
   if (online) applyAccess();
 }
 
-[packNameInput, packPriceInput, packSizeInput].forEach((el) => {
+[packNameInput, packPriceInput, packSizeInput, packLevelInput].forEach((el) => {
   el.addEventListener("input", updatePackForm);
 });
 

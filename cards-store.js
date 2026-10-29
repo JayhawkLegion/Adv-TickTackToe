@@ -104,8 +104,10 @@ const LocalStore = (() => {
 
     async openPack(packId) {
       const pack = PACKS.find((p) => p.id === packId);
-      const cards = pack && CardRules.openPack(POOL, needProfile(), pack, { newId });
-      if (!cards) throw new Error("You don't have enough coins for that pack.");
+      if (!pack) throw new Error("That pack isn't for sale.");
+      const problem = CardRules.packProblem(needProfile(), pack);
+      if (problem) throw new Error(problem);
+      const cards = CardRules.openPack(POOL, needProfile(), pack, { newId });
       commit();
       return cards;
     },
