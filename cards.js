@@ -19,6 +19,7 @@ const TIMEOUT_RETRY_MS = 3000;
 const statusEl = document.getElementById("status");
 const views = {
   setup: document.getElementById("setupView"),
+  home: document.getElementById("homeView"),
   deck: document.getElementById("deckView"),
   queue: document.getElementById("queueView"),
   play: document.getElementById("playView"),
@@ -46,8 +47,12 @@ const saveDeckBtn = document.getElementById("saveDeckBtn");
 const cancelEditBtn = document.getElementById("cancelEditBtn");
 const noDecksEl = document.getElementById("noDecks");
 const savedDeckListEl = document.getElementById("savedDeckList");
+const playBarEl = document.getElementById("playBar");
 const playBtn = document.getElementById("playBtn");
 const findBtn = document.getElementById("findBtn");
+const homeDeckEl = document.getElementById("homeDeck");
+const homeDeckTitleEl = document.getElementById("homeDeckTitle");
+const pickDeckEl = document.getElementById("pickDeck");
 
 const queueTextEl = document.getElementById("queueText");
 const cpuInsteadBtn = document.getElementById("cpuInsteadBtn");
@@ -84,10 +89,11 @@ let profile = null;
 let profileKnown = false;
 let view = null;
 let busy = false; // starting a game, claiming… (buttons wait)
-let selectedUids = []; // cards picked for the next hand
+let selectedUids = []; // cards picked for the next hand (the deck, kept by DeckDraft)
 let pickTab = "cards"; // "cards" or "decks"
 let selectedDeckId = null; // saved deck chosen for the next hand
 let editingDeckId = null; // saved deck being changed on the Cards tab
+let beforeEdit = null; // the deck to go back to if that edit is cancelled
 let rarityFilter = "all"; // which of the player's cards the Cards tab shows
 let cardSort = "number"; // see CARD_SORTS
 let queue = null; // looking for a player: { hand, started, tick, ping }
@@ -104,6 +110,14 @@ function showView(name) {
   Object.entries(views).forEach(([key, el]) => {
     el.hidden = key !== name;
   });
+  playBarEl.hidden = name !== "home" && name !== "deck";
+  // The bottom bar hides while looking for a player or during a game; it's
+  // back once the game is over.
+  updateNav();
+}
+
+function updateNav() {
+  WildFlipNav.setHidden(view === "queue" || (view === "play" && resultPanelEl.hidden));
 }
 
 const online = CardStore.mode === "online";
@@ -126,12 +140,29 @@ document.getElementById("levelRule").textContent =
   "beating other players. Levels also unlock cards: stronger Rares as you climb, the first Epic cards (and the " +
   "Apex Pack) at level 5, and Legendary cards at level 10. Packs hold fewer commons at higher levels.";
 document.getElementById("upgradeRule").textContent =
-  `Upgrade a card in Collection & Stats: use duplicate copies to raise one side of a copy by 1 ` +
+  `Upgrade a card from its close-up (tap it on Home, Play, Collection or the Store): use duplicate copies to raise one side of a copy by 1 ` +
   `(each side once, up to ${UPGRADE_MAX} upgrades). Upgrades stay with that copy; a card someone claims ` +
   "from you never carries them.";
 document.getElementById("coinRule").textContent =
   `Every game earns coins: against the computer ${rewardText("cpu")}; against another player ${rewardText("live")}. ` +
   "Spend them on card packs.";
+
+// --- Menu ---
+// How to Play opens the rules on Home; admins also get their tools.
+document.getElementById("rulesMenuItem").addEventListener("click", (e) => {
+  e.preventDefault();
+  if (!profile || (view !== "home" && view !== "deck")) return;
+  if (view !== "home") WildFlipNav.go("home");
+  const rules = document.getElementById("rulesBox");
+  rules.open = true;
+  rules.scrollIntoView({ behavior: "smooth", block: "start" });
+  closeMenu(); // menu.js
+});
+CardOnline.subscribe((s) => {
+  document.querySelectorAll(".cc-admin-item").forEach((item) => {
+    item.hidden = !(s.active && s.admin);
+  });
+});
 
 // --- Online status ---
 const setupCloudEl = document.getElementById("setupCloud");
@@ -155,7 +186,7 @@ CardOnline.subscribe((s) => {
     setupCloudTextEl.textContent = "Want to play other people, on any device? Sign in to make an online player.";
     setupCloudActionsEl.append(googleSignInButton());
   }
-  if (view === "deck") updatePlayButtons();
+  if (view === "deck" || view === "home") updatePlayButtons();
   // Online but the profile can't load: say why, and how to play anyway.
   if (online && !profileKnown && (s.status === "offline" || s.status === "error")) {
     setStatus(`${onlineStatusText(s)} Online play needs a connection; sign out in Settings to play on this device.`);
@@ -183,7 +214,7 @@ async function run(action, pendingText) {
   if (busy) return;
   busy = true;
   if (pendingText) setStatus(pendingText);
-  if (view === "deck") updatePlayButtons();
+  if (view === "deck" || view === "home") updatePlayButtons();
   try {
     await action();
   } catch (err) {
@@ -191,13 +222,21 @@ async function run(action, pendingText) {
     setStatus(err.message || "Something went wrong. Please try again.");
   } finally {
     busy = false;
-    if (view === "deck") updatePlayButtons();
+    if (view === "deck" || view === "home") updatePlayButtons();
   }
 }
 
-// --- Choose a hand ---
+// --- Home and Play ---
+// Home shows the player and their deck; Play is where the deck is chosen.
+// Both have the play buttons. The bottom bar switches between them.
 function showDeck(notice) {
-  showView("deck");
+  loadDeck();
+  if (WildFlipNav.route() === "play") showPlay(notice);
+  else showHome(notice);
+}
+
+function showHome(notice) {
+  showView("home");
   // Wake the online server now, so the game starts without a cold-start wait.
   CardStore.warmUp();
   renderProfileBar();
@@ -220,18 +259,144 @@ function showDeck(notice) {
     link.textContent = "Take the 2-minute tour";
     deckNoticeEl.append(link, ".");
   }
-
-  const collection = playableCollection(profile);
-  const owned = new Set(collection.map((c) => c.uid));
-  selectedUids = profile.lastHand.filter((uid) => owned.has(uid)).slice(0, HAND_SIZE);
-  if (collection.length === HAND_SIZE) selectedUids = collection.map((c) => c.uid);
-  editingDeckId = null;
-  // Coming back after playing a saved deck reopens My Decks with it chosen.
-  const lastDeck = profile.decks.find((d) => d.id === profile.lastDeckId && deckCardIds(profile, d));
-  selectedDeckId = lastDeck ? lastDeck.id : null;
-  if (lastDeck) selectedUids = [...lastDeck.uids];
-  showPickTab(lastDeck ? "decks" : "cards");
+  renderHome();
 }
+
+function showPlay(notice) {
+  showView("deck");
+  CardStore.warmUp();
+  editingDeckId = null;
+  showPickTab(selectedDeckId ? "decks" : "cards");
+  if (notice) setStatus(notice);
+}
+
+// The deck as last picked (DeckDraft), or the last hand played.
+function loadDeck() {
+  const draft = DeckDraft.read(profile);
+  selectedUids = draft.uids;
+  selectedDeckId = draft.deckId;
+}
+
+// Keeps the picked cards for the next visit and the other pages.
+function saveDraft() {
+  if (editingDeckId) return; // a saved deck being edited isn't the deck in play
+  const next = DeckDraft.write(profile, { uids: selectedUids, deckId: selectedDeckId });
+  selectedDeckId = next.deckId;
+}
+
+function renderHome() {
+  const deck = profile.decks.find((d) => d.id === selectedDeckId);
+  homeDeckTitleEl.textContent = deck ? `Your deck: ${deck.name}` : `Your deck (${selectedUids.length} / ${HAND_SIZE})`;
+  renderDeckStrip(homeDeckEl);
+  if (playableCollection(profile).length < HAND_SIZE) setStatus(`You need at least ${HAND_SIZE} cards to play.`);
+  else if (selectedUids.length === HAND_SIZE) setStatus(`Ready, ${profile.name}? Pick who to play.`);
+  else setStatus(`Your deck needs ${HAND_SIZE} cards. Tap Play to choose them.`);
+  updatePlayButtons();
+}
+
+// The deck's cards, with an empty slot for each one still to pick.
+function renderDeckStrip(container) {
+  container.innerHTML = "";
+  selectedUids.forEach((uid) => {
+    const owned = copyOf(uid);
+    if (!owned) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cc-hand-card";
+    btn.dataset.uid = uid;
+    btn.setAttribute("aria-label", `${getCard(owned.cardId).name}: close-up`);
+    btn.appendChild(createCardEl(owned.cardId, "neutral", copyLook(owned)));
+    container.appendChild(btn);
+  });
+  for (let i = selectedUids.length; i < HAND_SIZE; i++) {
+    const empty = document.createElement("button");
+    empty.type = "button";
+    empty.className = "cc-hand-card cc-empty-slot";
+    empty.dataset.empty = "1";
+    empty.setAttribute("aria-label", "Empty: choose a card");
+    empty.innerHTML = "<span>+</span>";
+    container.appendChild(empty);
+  }
+}
+
+// Tapping a card in a deck strip opens its close-up; an empty slot opens Play.
+function onDeckStripClick(e) {
+  const btn = e.target.closest(".cc-hand-card");
+  if (!btn) return;
+  if (btn.dataset.empty) {
+    if (view !== "deck") WildFlipNav.go("play");
+    else deckGridEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  openCloseup(btn.dataset.uid);
+}
+homeDeckEl.addEventListener("click", onDeckStripClick);
+pickDeckEl.addEventListener("click", onDeckStripClick);
+
+// The close-up's "Add to Deck" works on the cards picked here (or on the
+// saved deck being edited).
+const pickedDeck = {
+  get label() {
+    const editing = profile.decks.find((d) => d.id === editingDeckId);
+    return editing ? `"${editing.name}"` : "your deck";
+  },
+  read: () => [...selectedUids],
+  write(uids) {
+    selectedUids = uids.slice(0, HAND_SIZE);
+    selectedDeckId = null;
+    saveDraft();
+  },
+};
+
+function openCloseup(uid) {
+  const owned = copyOf(uid);
+  if (!owned) return;
+  CardCloseup.open(owned.cardId, {
+    copyUid: uid,
+    deck: pickedDeck,
+    after: () => {
+      // While picking cards, each change closes the close-up for the next pick.
+      if (view === "deck") CardCloseup.close();
+      refreshDeck();
+    },
+  });
+}
+
+function refreshDeck() {
+  if (view === "home") renderHome();
+  else if (view === "deck") {
+    if (pickTab === "decks" && !selectedDeckId) showPickTab("cards");
+    else renderDeck();
+  }
+}
+
+// Another page (or tab) changed the deck.
+window.addEventListener("wildflip:deck", (e) => {
+  if (!profile || editingDeckId) return;
+  const { uids, deckId } = e.detail;
+  if (uids.join() === selectedUids.join() && deckId === selectedDeckId) return;
+  selectedUids = [...uids];
+  selectedDeckId = deckId;
+  refreshDeck();
+});
+
+// The bottom bar's Home and Play.
+window.addEventListener("wildflip:route", (e) => {
+  if (!profile || view === "setup" || view === "queue") return;
+  if (view === "play") {
+    // Leaving a finished game (an active one has no bottom bar).
+    if (game && game.latest && game.latest.match.status === "active") return;
+    closeMatch();
+    if (profile.pendingClaim) {
+      showPendingClaim();
+      setStatus("Pick your card first: you won it!");
+      return;
+    }
+  }
+  if (e.detail === "play") showPlay();
+  else showHome();
+  window.scrollTo(0, 0);
+});
 
 function renderProfileBar() {
   deckNameEl.textContent = profile.name;
@@ -276,6 +441,7 @@ function renderDeck() {
   // Copies that were lost (third strike) drop out of the hand.
   const playable = new Set(playableCollection(profile).map((o) => o.uid));
   selectedUids = selectedUids.filter((uid) => playable.has(uid));
+  renderDeckStrip(pickDeckEl);
   if (pickTab === "decks") {
     renderSavedDecks();
     return;
@@ -309,8 +475,10 @@ function renderDeck() {
     setStatus(`You need at least ${HAND_SIZE} cards to play.`);
   } else if (!editing && count === HAND_SIZE && profile.decks.length >= MAX_DECKS) {
     setStatus(`Hand ready. You have the most decks you can save (${MAX_DECKS}).`);
+  } else if (count === HAND_SIZE && !editing) {
+    setStatus("Your deck is ready. Tap a card to swap it, or play!");
   } else {
-    setStatus(`Choose ${HAND_SIZE} cards for your hand: ${count} / ${HAND_SIZE}`);
+    setStatus(`Choose ${HAND_SIZE} cards for your deck: ${count} / ${HAND_SIZE}`);
   }
   updatePlayButtons();
 }
@@ -349,11 +517,12 @@ sortSelect.addEventListener("change", () => {
 
 // The hand to play with: { uids, deckId }, or null if none is ready.
 function chosenHand() {
-  if (pickTab === "decks") {
+  if (view === "deck" && pickTab === "decks") {
     const deck = profile.decks.find((d) => d.id === selectedDeckId && deckCardIds(profile, d));
     return deck ? { uids: [...deck.uids], deckId: deck.id } : null;
   }
-  return selectedUids.length === HAND_SIZE ? { uids: [...selectedUids], deckId: null } : null;
+  if (editingDeckId || selectedUids.length !== HAND_SIZE) return null;
+  return { uids: [...selectedUids], deckId: selectedDeckId };
 }
 
 function updatePlayButtons() {
@@ -433,9 +602,11 @@ savedDeckListEl.addEventListener("click", (e) => {
   if (btn.dataset.action === "pick") {
     selectedDeckId = deck.id;
     selectedUids = [...deck.uids];
+    saveDraft();
     renderDeck();
   } else if (btn.dataset.action === "edit") {
     // Open the deck's cards on the Cards tab to change them or the name.
+    beforeEdit = { uids: [...selectedUids], deckId: selectedDeckId };
     editingDeckId = deck.id;
     selectedDeckId = null;
     selectedUids = [...deck.uids];
@@ -445,7 +616,7 @@ savedDeckListEl.addEventListener("click", (e) => {
     if (!confirm(`Delete the deck "${deck.name}"? Its cards stay in your collection.`)) return;
     if (selectedDeckId === deck.id) {
       selectedDeckId = null;
-      selectedUids = [];
+      saveDraft();
     }
     run(() => CardStore.deleteDeck(deck.id));
   }
@@ -457,6 +628,7 @@ saveDeckBtn.addEventListener("click", () => {
     const deck = await CardStore.saveDeck({ id: editingDeckId, name: deckNameInput.value, uids: selectedUids });
     editingDeckId = null;
     selectedDeckId = deck.id;
+    saveDraft();
     deckNameInput.value = "";
     renderDeck();
     setStatus(wasEditing ? `Saved changes to "${deck.name}".` : `Saved "${deck.name}". It's in My Decks.`);
@@ -466,21 +638,19 @@ saveDeckBtn.addEventListener("click", () => {
 cancelEditBtn.addEventListener("click", () => {
   editingDeckId = null;
   deckNameInput.value = "";
-  selectedUids = [];
+  if (beforeEdit) {
+    selectedUids = beforeEdit.uids;
+    selectedDeckId = beforeEdit.deckId;
+    beforeEdit = null;
+    saveDraft();
+  }
   showPickTab("decks");
 });
 
+// A card opens its close-up, which adds it to the deck or takes it out.
 deckGridEl.addEventListener("click", (e) => {
   const btn = e.target.closest(".cc-pick");
-  if (!btn) return;
-  const uid = btn.dataset.uid;
-  if (selectedUids.includes(uid)) {
-    selectedUids = selectedUids.filter((u) => u !== uid);
-  } else if (selectedUids.length < HAND_SIZE) {
-    selectedUids.push(uid);
-  }
-  selectedDeckId = null; // hand-picked cards are no longer a saved deck
-  renderDeck();
+  if (btn) openCloseup(btn.dataset.uid);
 });
 
 playBtn.addEventListener("click", () => {
@@ -591,6 +761,7 @@ function openMatch(id, fresh) {
   closeMatch();
   showView("play");
   resultPanelEl.hidden = true;
+  updateNav();
   boardEl.hidden = false;
   oppSideEl.hidden = false;
   youSideEl.hidden = false;
@@ -1067,6 +1238,7 @@ function showResult(result, strikes = [], matchId = null) {
   oppSideEl.hidden = true;
   youSideEl.hidden = true;
   resultPanelEl.hidden = false;
+  updateNav();
   claimPick = null;
 
   const caughtUp = !matchId || (profile.history[0] && profile.history[0].matchId === matchId);
@@ -1165,6 +1337,8 @@ claimBtn.addEventListener("click", async () => {
 
 againBtn.addEventListener("click", () => {
   closeMatch();
+  if (WildFlipNav.route() !== "play") history.pushState(null, "", "#play");
+  WildFlipNav.mark();
   showDeck();
 });
 
@@ -1204,8 +1378,10 @@ function onProfile(next) {
     showSetup();
   } else if (view === "setup") {
     showDeck(`Welcome, ${profile.name}! Here are your ${STARTER_SIZE} starter cards.`);
-  } else if (view === "deck") {
+  } else if (view === "home") {
     renderProfileBar();
+    renderHome();
+  } else if (view === "deck") {
     renderDeck();
   } else if (view === "queue") {
     if (profile.activeMatch) enterMatch(profile.activeMatch);

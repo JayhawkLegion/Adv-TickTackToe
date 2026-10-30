@@ -175,6 +175,7 @@ function dealCards() {
     slot.innerHTML = `<div class="cc-card-back"><span>?</span></div>`;
     packCardsEl.appendChild(slot);
   });
+  openHintEl.textContent = "Tap a card to turn it over.";
   openHintEl.hidden = false;
   revealAllBtn.hidden = false;
   setStatus(`Tap each card to turn it over.`);
@@ -186,8 +187,8 @@ function reveal(i) {
   card.revealed = true;
   const def = getCard(card.cardId);
   const slot = packCardsEl.querySelector(`[data-index="${i}"]`);
-  slot.disabled = true;
-  slot.setAttribute("aria-label", `${def.name}, ${RARITIES[def.rarity].label}${card.isNew ? ", new" : ""}`);
+  slot.dataset.revealed = "1";
+  slot.setAttribute("aria-label", `${def.name}, ${RARITIES[def.rarity].label}${card.isNew ? ", new" : ""}: close-up`);
   slot.innerHTML = "";
   const cardEl = createCardEl(card.cardId);
   cardEl.classList.add("cc-flipping");
@@ -208,16 +209,20 @@ function finishOpening() {
   const better = rarityCounts(drawn.map((c) => getCard(c.cardId)));
   if (better) parts.push(better);
   setStatus(`${parts.join(" · ")}.`);
-  openHintEl.hidden = true;
+  openHintEl.textContent = "Tap a card for a close-up, to upgrade it or add it to your deck.";
   revealAllBtn.hidden = true;
   doneBtn.hidden = false;
   againBtn.hidden = player.coins < pack.price;
   againBtn.textContent = `Open Another (🪙 ${pack.price.toLocaleString()})`;
 }
 
+// Tap a card to turn it over, then again for its close-up (cards-ui.js).
 packCardsEl.addEventListener("click", (e) => {
   const slot = e.target.closest(".cc-pack-slot");
-  if (slot) reveal(Number(slot.dataset.index));
+  if (!slot) return;
+  const i = Number(slot.dataset.index);
+  if (slot.dataset.revealed) CardCloseup.open(drawn[i].cardId, { playLink: true });
+  else reveal(i);
 });
 
 revealAllBtn.addEventListener("click", () => {

@@ -70,17 +70,26 @@ resetPlayerBtn.addEventListener("click", async () => {
   }
 });
 
-saveBtn.addEventListener("click", async () => {
+const nameStatusEl = document.getElementById("nameStatus");
+document.getElementById("nameForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
   const name = cleanName(nameInput.value);
-  if (player && name !== player.name) {
-    saveBtn.disabled = true;
-    try {
-      await CardStore.rename(name);
-    } catch (err) {
-      alert(err.message || "Couldn't save the name. Please try again.");
-      saveBtn.disabled = false;
-      return;
-    }
+  nameInput.value = name;
+  if (!player || name === player.name) {
+    nameStatusEl.textContent = "Saved.";
+    return;
   }
-  window.location.href = "cards.html";
+  saveBtn.disabled = true;
+  try {
+    await CardStore.rename(name);
+    nameStatusEl.textContent = "Saved.";
+  } catch (err) {
+    nameStatusEl.textContent = err.message || "Couldn't save the name. Please try again.";
+  } finally {
+    saveBtn.disabled = false;
+  }
+});
+
+nameInput.addEventListener("input", () => {
+  nameStatusEl.textContent = "";
 });
