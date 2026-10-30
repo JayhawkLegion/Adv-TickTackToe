@@ -140,7 +140,7 @@ document.getElementById("levelRule").textContent =
   "beating other players. Levels also unlock cards: stronger Rares as you climb, the first Epic cards (and the " +
   "Apex Pack) at level 5, and Legendary cards at level 10. Packs hold fewer commons at higher levels.";
 document.getElementById("upgradeRule").textContent =
-  `Upgrade a card from its close-up (tap it on Home, Play, Collection or the Store): use duplicate copies to raise one side of a copy by 1 ` +
+  `Upgrade a card from its close-up in Collection: use duplicate copies to raise one side of a copy by 1 ` +
   `(each side once, up to ${UPGRADE_MAX} upgrades). Upgrades stay with that copy; a card someone claims ` +
   "from you never carries them.";
 document.getElementById("coinRule").textContent =
@@ -319,47 +319,29 @@ function renderDeckStrip(container) {
   }
 }
 
-// Tapping a card in a deck strip opens its close-up; an empty slot opens Play.
-function onDeckStripClick(e) {
+// Home's deck opens Play to change it. On Play, tapping a card in the deck
+// takes it out, and an empty slot points to the cards below.
+homeDeckEl.addEventListener("click", (e) => {
+  if (e.target.closest(".cc-hand-card")) WildFlipNav.go("play");
+});
+
+pickDeckEl.addEventListener("click", (e) => {
   const btn = e.target.closest(".cc-hand-card");
   if (!btn) return;
-  if (btn.dataset.empty) {
-    if (view !== "deck") WildFlipNav.go("play");
-    else deckGridEl.scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
+  if (btn.dataset.empty) deckGridEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  else toggleCard(btn.dataset.uid);
+});
+
+// Picks a card for the deck, or takes it out.
+function toggleCard(uid) {
+  if (selectedUids.includes(uid)) {
+    selectedUids = selectedUids.filter((u) => u !== uid);
+  } else if (selectedUids.length < HAND_SIZE) {
+    selectedUids.push(uid);
   }
-  openCloseup(btn.dataset.uid);
-}
-homeDeckEl.addEventListener("click", onDeckStripClick);
-pickDeckEl.addEventListener("click", onDeckStripClick);
-
-// The close-up's "Add to Deck" works on the cards picked here (or on the
-// saved deck being edited).
-const pickedDeck = {
-  get label() {
-    const editing = profile.decks.find((d) => d.id === editingDeckId);
-    return editing ? `"${editing.name}"` : "your deck";
-  },
-  read: () => [...selectedUids],
-  write(uids) {
-    selectedUids = uids.slice(0, HAND_SIZE);
-    selectedDeckId = null;
-    saveDraft();
-  },
-};
-
-function openCloseup(uid) {
-  const owned = copyOf(uid);
-  if (!owned) return;
-  CardCloseup.open(owned.cardId, {
-    copyUid: uid,
-    deck: pickedDeck,
-    after: () => {
-      // While picking cards, each change closes the close-up for the next pick.
-      if (view === "deck") CardCloseup.close();
-      refreshDeck();
-    },
-  });
+  selectedDeckId = null; // hand-picked cards are no longer a saved deck
+  saveDraft();
+  renderDeck();
 }
 
 function refreshDeck() {
@@ -476,7 +458,7 @@ function renderDeck() {
   } else if (!editing && count === HAND_SIZE && profile.decks.length >= MAX_DECKS) {
     setStatus(`Hand ready. You have the most decks you can save (${MAX_DECKS}).`);
   } else if (count === HAND_SIZE && !editing) {
-    setStatus("Your deck is ready. Tap a card to swap it, or play!");
+    setStatus("Your deck is ready. Tap a card to take it out, or play!");
   } else {
     setStatus(`Choose ${HAND_SIZE} cards for your deck: ${count} / ${HAND_SIZE}`);
   }
@@ -647,10 +629,9 @@ cancelEditBtn.addEventListener("click", () => {
   showPickTab("decks");
 });
 
-// A card opens its close-up, which adds it to the deck or takes it out.
 deckGridEl.addEventListener("click", (e) => {
   const btn = e.target.closest(".cc-pick");
-  if (btn) openCloseup(btn.dataset.uid);
+  if (btn) toggleCard(btn.dataset.uid);
 });
 
 playBtn.addEventListener("click", () => {

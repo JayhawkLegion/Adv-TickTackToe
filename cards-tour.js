@@ -176,8 +176,7 @@ const STEPS = [
     title: "Save a deck",
     show() {
       coach("Save a deck",
-        `On the ${strong("Play")} page you choose ${strong("5 cards")} for your deck: tap a card, then ${strong("Add to Deck")}. ` +
-        "Here, just tap the 5 glowing cards, your strongest, to pick them.");
+        `On the ${strong("Play")} page you choose ${strong("5 cards")} for your deck. Tap the 5 glowing cards, your strongest, to pick them.`);
       ready(false);
       const picked = new Set();
       const grid = el("div", "cc-grid");
@@ -281,7 +280,7 @@ const STEPS = [
     show() {
       coach("The catalog",
         `${strong("Collection")} lists every card, grouped by set. Cards you haven't found show only their number ` +
-        "and rarity. Tap a card you own, on any page, for a close-up.");
+        "and rarity. Tap a card you own for a close-up.");
       ready(false);
       const set = cardSet(DUPLICATE);
       const inSet = TOUR.cards.filter((c) => cardSet(c).id === set.id && c.rarity === "common");
