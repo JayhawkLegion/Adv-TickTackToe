@@ -2428,7 +2428,7 @@ div.cc-hand-card {
 }
 
 /* Admin-only pages for everyone else: just the title, the note and the way back. */
-.cc-locked > :not(h1):not(.cc-gate):not(.cc-admin-back) {
+.cc-locked > :not(h1):not(.cc-gate) {
   display: none !important;
 }
 
@@ -2558,4 +2558,171 @@ div.cc-hand-card {
 
 .cc-pack-locked .cc-pack-art {
   filter: grayscale(0.7) brightness(0.7);
+}
+
+/* --- Bottom navigation (cards-ui.js) ---
+   Fixed to the bottom of the screen on every WildFlip page except during a
+   game; pages leave room for it. */
+body.cc-with-nav {
+  padding-bottom: calc(4.6rem + env(safe-area-inset-bottom));
+}
+
+.cc-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  background: rgba(30, 31, 41, 0.96);
+  border-top: 1px solid var(--cell);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.35);
+  padding: 0.3rem env(safe-area-inset-right) calc(0.3rem + env(safe-area-inset-bottom)) env(safe-area-inset-left);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.cc-nav[hidden] {
+  display: none;
+}
+
+.cc-nav-item {
+  flex: 1;
+  max-width: 7.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.35rem 0.2rem;
+  border-radius: 0.6rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cc-nav-item svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.cc-nav-item:hover {
+  color: var(--text);
+}
+
+.cc-nav-item[aria-current="page"] {
+  color: var(--text);
+  background: rgba(108, 99, 255, 0.22);
+}
+
+.cc-nav-item[aria-current="page"] svg {
+  color: #a9a4ff;
+}
+
+/* The play buttons stay in reach above the bottom bar on Home and Play. */
+.cc-play-bar {
+  position: sticky;
+  bottom: calc(4.6rem + env(safe-area-inset-bottom));
+  z-index: 5;
+  margin: 0.8rem -0.6rem 0.4rem;
+  padding: 0.6rem;
+  border-radius: 0.8rem;
+  background: var(--panel);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.cc-play-bar {
+  flex-wrap: nowrap;
+}
+
+.cc-play-bar .reset-btn {
+  flex: 1 1 0;
+  max-width: 13rem;
+  margin-top: 0;
+  padding: 0.7rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+#cardsTab .cc-tap-hint {
+  margin-bottom: 0.7rem;
+}
+
+/* The deck's cards on Home and Play, with "+" for each empty slot. */
+.cc-home-deck {
+  margin-bottom: 0.2rem;
+}
+
+.cc-empty-slot {
+  aspect-ratio: 1 / 1;
+  border-radius: 12%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--cell-hover) !important;
+  color: var(--muted);
+  font-size: 1.4rem;
+}
+
+#homeView .cc-heading-row {
+  margin-top: 0.4rem;
+}
+
+#homeView .cc-tour-link {
+  display: inline-block;
+  margin-top: 0.8rem;
+}
+
+/* Close-up extras: the corner close button, copies and deck panel. */
+.cc-closeup {
+  position: relative;
+}
+
+.cc-closeup-x {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.6rem;
+  line-height: 1;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.cc-closeup-x:hover {
+  color: var(--text);
+}
+
+.cc-closeup-copies {
+  justify-content: center;
+  margin: 0 0 0.6rem;
+}
+
+.cc-closeup-deck .reset-btn {
+  width: 100%;
+}
+
+.cc-closeup-play {
+  display: block;
+  margin-top: 0.6rem;
+  text-align: center;
+}
+
+.cc-dialog {
+  max-height: 92dvh;
+}
+
+.cc-dialog [hidden] {
+  display: none !important;
+}
+
+.cc-closeup-deck .cc-upgrade-copies {
+  flex-wrap: nowrap;
+}
+
+.cc-closeup-deck .cc-upgrade-copies .cc-hand-card {
+  flex: 1 1 0;
+  min-width: 0;
 }

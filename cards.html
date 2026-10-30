@@ -25,10 +25,11 @@
           <svg viewBox="0 0 24 24" class="menu-icon" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/></svg>
         </button>
         <div id="menuDropdown" class="menu-dropdown" hidden>
-          <a href="index.html" class="menu-item" data-page="index.html">Tic-Tac-Toe</a>
-          <a href="fence.html" class="menu-item" data-page="fence.html">Fence</a>
-          <a href="connect4.html" class="menu-item" data-page="connect4.html">Connect 4</a>
-          <a href="cards.html" class="menu-item" data-page="cards.html">WildFlip</a>
+          <a href="cards-tour.html" class="menu-item">Take the Tour</a>
+          <a href="cards.html" id="rulesMenuItem" class="menu-item">How to Play</a>
+          <a href="cards-settings.html" class="menu-item">Settings</a>
+          <a href="cards-admin.html" class="menu-item cc-admin-item" hidden>Card Builder</a>
+          <a href="cards-sim.html" class="menu-item cc-admin-item" hidden>Simulator</a>
         </div>
       </div>
 
@@ -54,8 +55,8 @@
       </div>
     </section>
 
-    <!-- Choose a hand -->
-    <section id="deckView" class="cc-view" hidden>
+    <!-- Home: the player, their deck and quick play -->
+    <section id="homeView" class="cc-view" hidden>
       <div class="cc-profile">
         <div class="cc-profile-name">
           <strong id="deckName"></strong>
@@ -68,11 +69,38 @@
           <a id="cloudBadge" href="cards-settings.html" class="cc-cloud-badge" hidden></a>
         </div>
         <div class="cc-profile-links">
-          <a href="cards-packs.html" class="cc-link">🪙 <span id="deckCoins">0</span> · Packs</a>
-          <a href="cards-collection.html" class="cc-link">Collection &amp; Stats</a>
+          <a href="cards-packs.html" class="cc-link">🪙 <span id="deckCoins">0</span></a>
         </div>
       </div>
       <p id="deckNotice" class="cc-notice" hidden></p>
+
+      <div class="cc-heading-row">
+        <h2 id="homeDeckTitle" class="cc-heading">Your deck</h2>
+        <a href="cards.html#play" id="editDeckLink" class="cc-link">Change cards</a>
+      </div>
+      <div id="homeDeck" class="cc-hand cc-home-deck" role="group" aria-label="Your deck"></div>
+      <p class="settings-hint cc-tap-hint">Tap a card for a close-up, upgrades and deck changes.</p>
+
+      <a href="cards-tour.html" class="cc-link cc-tour-link">📘 Take the 2-minute tour</a>
+      <details id="rulesBox" class="cc-rules">
+        <summary>How to play</summary>
+        <ul>
+          <li>A coin toss decides who goes first. The first player's cards are <span class="cc-red-text">Red</span>, the other player's are <span class="cc-blue-text">Blue</span>.</li>
+          <li>Take turns placing a card from your hand on any empty square.</li>
+          <li>When you place a card, any touching opponent card whose facing number is lower than your card's number on that side flips to your color. One card can flip several at once.</li>
+          <li id="scoreRule"></li>
+          <li>Win, and you may add a copy of one of your opponent's cards that ended in your color to your collection. Cards you don't have yet are marked NEW.</li>
+          <li id="strikeRule"></li>
+          <li id="clockRule"></li>
+          <li id="levelRule"></li>
+          <li id="upgradeRule"></li>
+          <li id="coinRule"></li>
+        </ul>
+      </details>
+    </section>
+
+    <!-- Play: choose the hand (deck) for the next game -->
+    <section id="deckView" class="cc-view" hidden>
 
       <div id="pickTabs" class="size-options cc-tabs" role="tablist" aria-label="Choose your hand from">
         <button type="button" role="tab" class="size-option selected" data-tab="cards" aria-selected="true">Cards</button>
@@ -82,6 +110,8 @@
       <!-- Pick individual cards -->
       <div id="cardsTab" role="tabpanel">
         <p id="editingNote" class="cc-notice" hidden></p>
+        <div id="pickDeck" class="cc-hand cc-home-deck" role="group" aria-label="Cards picked"></div>
+        <p class="settings-hint cc-tap-hint">Tap a card for a close-up, then add it to your deck.</p>
         <div class="cc-pick-tools">
           <div id="rarityFilter" class="size-options cc-filter" role="group" aria-label="Show cards of rarity"></div>
           <select id="sortSelect" class="cc-select cc-sort" aria-label="Sort cards">
@@ -104,27 +134,13 @@
         <div id="savedDeckList" class="cc-deck-list"></div>
       </div>
 
-      <div class="cc-play-actions">
-        <button id="playBtn" class="reset-btn cc-play-btn" disabled>Play the Computer</button>
-        <button id="findBtn" class="reset-btn cc-play-btn cc-secondary" hidden disabled>Find a Player</button>
-      </div>
-      <a href="cards-tour.html" class="cc-link cc-tour-link">📘 Take the 2-minute tour</a>
-      <details class="cc-rules">
-        <summary>How to play</summary>
-        <ul>
-          <li>A coin toss decides who goes first. The first player's cards are <span class="cc-red-text">Red</span>, the other player's are <span class="cc-blue-text">Blue</span>.</li>
-          <li>Take turns placing a card from your hand on any empty square.</li>
-          <li>When you place a card, any touching opponent card whose facing number is lower than your card's number on that side flips to your color. One card can flip several at once.</li>
-          <li id="scoreRule"></li>
-          <li>Win, and you may add a copy of one of your opponent's cards that ended in your color to your collection. Cards you don't have yet are marked NEW.</li>
-          <li id="strikeRule"></li>
-          <li id="clockRule"></li>
-          <li id="levelRule"></li>
-          <li id="upgradeRule"></li>
-          <li id="coinRule"></li>
-        </ul>
-      </details>
     </section>
+
+    <!-- Quick play, on Home and Play -->
+    <div id="playBar" class="cc-play-actions cc-play-bar" hidden>
+      <button id="playBtn" class="reset-btn cc-play-btn" disabled>Play the Computer</button>
+      <button id="findBtn" class="reset-btn cc-play-btn cc-secondary" hidden disabled>Find a Player</button>
+    </div>
 
     <!-- Looking for another player -->
     <section id="queueView" class="cc-view cc-queue" hidden>
@@ -182,6 +198,7 @@
   <script src="cards-cloud-config.js"></script>
   <script src="cards-online.js"></script>
   <script src="cards-store.js"></script>
+  <script src="cards-ui.js"></script>
   <script src="cards.js"></script>
 </body>
 </html>

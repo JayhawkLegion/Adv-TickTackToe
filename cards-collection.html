@@ -41,36 +41,13 @@
       <div id="rarityFilter" class="size-options cc-filter" role="group" aria-label="Show cards of rarity"></div>
       <div id="collectionGroups"></div>
 
-      <p class="settings-hint cc-tap-hint">Tap a card for a close-up.</p>
+      <p class="settings-hint cc-tap-hint">Tap a card for a close-up, to upgrade it or add it to your deck.</p>
 
       <h2 class="cc-heading">Recent games</h2>
       <ul id="historyList" class="cc-history"></ul>
     </div>
 
-    <div class="settings-actions">
-      <a href="cards.html" class="reset-btn cc-btn-link">Back to Game</a>
-    </div>
   </main>
-
-  <!-- Close-up of one card -->
-  <dialog id="cardDialog" class="cc-dialog" aria-labelledby="closeupTitle">
-    <div class="cc-closeup">
-      <div id="closeupCard" class="cc-closeup-card"></div>
-      <h2 id="closeupTitle" class="cc-closeup-title"></h2>
-      <p id="closeupMeta" class="cc-closeup-meta"></p>
-      <dl id="closeupStats" class="cc-closeup-stats"></dl>
-      <p id="closeupNote" class="settings-hint"></p>
-      <section id="upgradeBox" class="cc-upgrade" hidden>
-        <h3 class="cc-upgrade-title">Upgrade a copy</h3>
-        <p id="upgradeHint" class="settings-hint"></p>
-        <div id="upgradeCopies" class="cc-upgrade-copies" role="group" aria-label="Which copy"></div>
-        <div id="upgradeSides" class="size-options cc-upgrade-sides" role="group" aria-label="Which side"></div>
-        <p id="upgradeCost" class="cc-upgrade-cost"></p>
-        <button id="upgradeBtn" type="button" class="reset-btn">Upgrade</button>
-      </section>
-      <button id="closeupClose" type="button" class="reset-btn cc-secondary">Close</button>
-    </div>
-  </dialog>
 
   <script src="cards-pool.js"></script>
   <script src="cards-rules.js"></script>
@@ -78,6 +55,7 @@
   <script src="cards-cloud-config.js"></script>
   <script src="cards-online.js"></script>
   <script src="cards-store.js"></script>
+  <script src="cards-ui.js"></script>
   <script src="cards-collection.js"></script>
 </body>
 </html>

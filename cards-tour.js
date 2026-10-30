@@ -123,7 +123,7 @@ const STEPS = [
     title: "Open a card pack",
     show() {
       coach("Open a card pack",
-        `Packs are on the ${strong("🪙 Packs")} page. Tap ${strong("Open Standard Pack")} to spend your coins.`);
+        `Packs are in the ${strong("Store")}, in the bar at the bottom of every page. Tap ${strong("Open Standard Pack")} to spend your coins.`);
       ready(false);
       const wallet = el("div", "cc-wallet");
       wallet.innerHTML = `🪙 <strong>${PACK_PRICE}</strong> coins`;
@@ -176,7 +176,8 @@ const STEPS = [
     title: "Save a deck",
     show() {
       coach("Save a deck",
-        `Before each game you choose ${strong("5 cards")} for your hand. Tap the 5 glowing cards, your strongest, to pick them.`);
+        `On the ${strong("Play")} page you choose ${strong("5 cards")} for your deck: tap a card, then ${strong("Add to Deck")}. ` +
+        "Here, just tap the 5 glowing cards, your strongest, to pick them.");
       ready(false);
       const picked = new Set();
       const grid = el("div", "cc-grid");
@@ -279,8 +280,8 @@ const STEPS = [
     title: "The catalog",
     show() {
       coach("The catalog",
-        `${strong("Collection & Stats")} lists every card, grouped by set. Cards you haven't found show only their number ` +
-        "and rarity. Tap a card you own for a close-up.");
+        `${strong("Collection")} lists every card, grouped by set. Cards you haven't found show only their number ` +
+        "and rarity. Tap a card you own, on any page, for a close-up.");
       ready(false);
       const set = cardSet(DUPLICATE);
       const inSet = TOUR.cards.filter((c) => cardSet(c).id === set.id && c.rarity === "common");
@@ -316,7 +317,7 @@ const STEPS = [
           closeup.append(cardEl(card), el("p", "cc-note",
             `${card.name} · ${RARITIES[card.rarity].label} · total ${cardTotal(card)} · ${n} cop${n === 1 ? "y" : "ies"} owned`));
           say(`The close-up shows a card's total, how many copies you own, and how it's done in your games. ` +
-            `With duplicates you'll also find ${strong("Upgrade a copy")} here.`);
+            `You can ${strong("Add to Deck")} from here, and with duplicates ${strong("Upgrade this copy")} too.`);
           ready();
         });
         grid.appendChild(item);

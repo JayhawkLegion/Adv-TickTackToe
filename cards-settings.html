@@ -34,7 +34,11 @@
     <div id="playerSettings" hidden>
       <div class="setting-block">
         <label for="nameInput">Player name</label>
-        <input id="nameInput" class="cc-input" type="text" maxlength="20" autocomplete="off">
+        <form id="nameForm" class="cc-form">
+          <input id="nameInput" class="cc-input" type="text" maxlength="20" autocomplete="off">
+          <button id="saveBtn" type="submit" class="reset-btn cc-secondary">Save</button>
+        </form>
+        <p id="nameStatus" class="settings-hint" aria-live="polite"></p>
       </div>
 
       <div class="setting-block">
@@ -56,9 +60,6 @@
       <a href="cards-sim.html" class="reset-btn cc-btn-link cc-secondary cc-admin-link">Simulator</a>
     </div>
 
-    <div class="settings-actions">
-      <button id="saveBtn" class="reset-btn">Save &amp; Back to Game</button>
-    </div>
   </main>
 
   <script src="cards-pool.js"></script>
@@ -67,6 +68,7 @@
   <script src="cards-cloud-config.js"></script>
   <script src="cards-online.js"></script>
   <script src="cards-store.js"></script>
+  <script src="cards-ui.js"></script>
   <script src="cards-settings.js"></script>
 </body>
 </html>
