@@ -19,7 +19,9 @@ const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const CardRules = require("./shared/cards-rules.js");
 
-setGlobalOptions({ region: "us-central1", maxInstances: 10 });
+// A full CPU per instance, serving many requests at once: moves don't wait
+// for one another, and fewer instances have to start up ("cold starts").
+setGlobalOptions({ region: "us-central1", maxInstances: 10, cpu: 1, memory: "512MiB", concurrency: 80 });
 initializeApp();
 const db = getFirestore();
 db.settings({ ignoreUndefinedProperties: true });
@@ -127,18 +129,18 @@ function seatOf(state, uid) {
 
 // The people in a match (not the computer), read before any write.
 async function readSeatProfiles(tx, state) {
-  const profiles = {};
-  for (const seat of ["a", "b"]) {
-    if (!CardRules.isCpuSeat(state, seat)) profiles[seat] = await readProfile(tx, state.seats[seat].uid);
-  }
-  return profiles;
+  const people = ["a", "b"].filter((seat) => !CardRules.isCpuSeat(state, seat));
+  const read = await Promise.all(people.map((seat) => readProfile(tx, state.seats[seat].uid)));
+  return Object.fromEntries(people.map((seat, i) => [seat, read[i]]));
 }
 
 // Saves a match after a change; if it just ended, settles it for each
 // player (coins, stats, strikes, card claim) and frees them for a new game.
-function saveMatch(tx, pool, ref, state, profiles, now) {
+// The profiles are only read then, which keeps every other move quick.
+async function saveMatch(tx, pool, ref, state, now) {
   const settlements = {};
   if (state.status === "finished") {
+    const profiles = await readSeatProfiles(tx, state);
     Object.entries(profiles).forEach(([seat, profile]) => {
       if (!profile.data) return; // reset their profile mid-game
       settlements[seat] = CardRules.settleForSeat(pool, state, seat, profile.data, now);
@@ -149,14 +151,10 @@ function saveMatch(tx, pool, ref, state, profiles, now) {
   writeMatch(tx, ref, state, settlements);
 }
 
-// Runs fn(tx, pool, match, profiles) on a match in a transaction.
+// Runs fn(tx, pool, match) on a match in a transaction.
 async function withMatch(matchId, fn) {
   const pool = await getPool();
-  return db.runTransaction(async (tx) => {
-    const { ref, state } = await readMatch(tx, matchId);
-    const profiles = await readSeatProfiles(tx, state);
-    return fn(tx, pool, { ref, state }, profiles);
-  });
+  return db.runTransaction(async (tx) => fn(tx, pool, await readMatch(tx, matchId)));
 }
 
 function needHand(pool, profile, uids) {
@@ -283,6 +281,7 @@ exports.startCpuMatch = onCall(async (req) => {
 // (CardRules.matchGap, which allows wider gaps the longer anyone waits);
 // otherwise they wait in the queue. Turn order is a coin toss.
 exports.joinQueue = onCall(async (req) => {
+  if (isWarmUp(req)) return { warm: true };
   const uid = needUid(req);
   const { uids, deckId } = req.data || {};
   const pool = await getPool();
@@ -361,22 +360,22 @@ exports.playMove = onCall(async (req) => {
   if (isWarmUp(req)) return { warm: true };
   const uid = needUid(req);
   const { matchId, copyUid, slot } = req.data || {};
-  return withMatch(matchId, (tx, pool, { ref, state }, profiles) => {
+  return withMatch(matchId, async (tx, pool, { ref, state }) => {
     const now = Date.now();
     const played = CardRules.playMove(pool, state, seatOf(state, uid), copyUid, slot, { now });
     if (!played.ok) fail("failed-precondition", played.error);
     CardRules.runCpuTurns(pool, state, { now });
-    saveMatch(tx, pool, ref, state, profiles, now);
+    await saveMatch(tx, pool, ref, state, now);
     return { ok: true };
   });
 });
 
 exports.resign = onCall(async (req) => {
   const uid = needUid(req);
-  return withMatch((req.data || {}).matchId, (tx, pool, { ref, state }, profiles) => {
+  return withMatch((req.data || {}).matchId, async (tx, pool, { ref, state }) => {
     const now = Date.now();
     if (!CardRules.forfeit(state, seatOf(state, uid), "resign", now)) return { ok: false };
-    saveMatch(tx, pool, ref, state, profiles, now);
+    await saveMatch(tx, pool, ref, state, now);
     return { ok: true };
   });
 });
@@ -386,11 +385,11 @@ exports.resign = onCall(async (req) => {
 // after timeouts in a row.
 exports.claimTimeout = onCall(async (req) => {
   const uid = needUid(req);
-  return withMatch((req.data || {}).matchId, (tx, pool, { ref, state }, profiles) => {
+  return withMatch((req.data || {}).matchId, async (tx, pool, { ref, state }) => {
     seatOf(state, uid);
     const now = Date.now();
     if (!CardRules.handleTimeout(pool, state, { now })) return { changed: false };
-    saveMatch(tx, pool, ref, state, profiles, now);
+    await saveMatch(tx, pool, ref, state, now);
     return { changed: true };
   });
 });
@@ -402,9 +401,9 @@ exports.sweep = onSchedule("every 1 minutes", async () => {
   const due = await matches.where("turnDeadline", "<", now).limit(50).get();
   for (const doc of due.docs) {
     try {
-      await withMatch(doc.id, (tx, pool, { ref, state }, profiles) => {
+      await withMatch(doc.id, async (tx, pool, { ref, state }) => {
         const at = Date.now();
-        if (CardRules.handleTimeout(pool, state, { now: at })) saveMatch(tx, pool, ref, state, profiles, at);
+        if (CardRules.handleTimeout(pool, state, { now: at })) await saveMatch(tx, pool, ref, state, at);
       });
     } catch (err) {
       console.error("sweep: match", doc.id, err);

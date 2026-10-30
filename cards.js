@@ -680,7 +680,10 @@ function startQueue(hand) {
   setStatus("Find a Player");
   cpuInsteadBtn.hidden = true;
   queue = { hand, started: Date.now() };
-  queue.tick = setInterval(updateQueueText, 1000);
+  queue.tick = setInterval(() => {
+    updateQueueText();
+    CardStore.warmUp(); // so the first move doesn't wait for the server to wake
+  }, 1000);
   queue.ping = setInterval(pingQueue, QUEUE_PING_MS);
   updateQueueText();
   pingQueue();
@@ -778,7 +781,12 @@ function openMatch(id, fresh) {
     id, fresh, latest: null, board: Array(9).fill(null), shown: 0, pending: null, animating: false,
     selected: null, oppPick: null, note: "", resultShown: false, timeoutAsked: null,
   };
-  game.clock = setInterval(updateClocks, 250);
+  game.clock = setInterval(() => {
+    updateClocks();
+    // Keeps the server awake through a long think (warmUp waits a few
+    // minutes between pings).
+    CardStore.warmUp();
+  }, 250);
   try {
     game.unwatch = CardStore.watchMatch(id, onMatchView, (err) => matchFailed(id, err));
   } catch (err) {
