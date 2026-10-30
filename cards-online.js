@@ -340,12 +340,13 @@ const CardOnline = (() => {
     },
 
     // The server sleeps after a few idle minutes and takes seconds to wake
-    // (a "cold start"). A quick ping before a game wakes the functions a
-    // game uses first; at most once every few minutes.
+    // (a "cold start"). A quick ping wakes the functions a game uses: before
+    // a game, while looking for a player and during a game; at most once
+    // every few minutes.
     warmUp() {
       if (Date.now() - lastWarmUp < WARM_UP_EVERY_MS) return;
       lastWarmUp = Date.now();
-      ["startCpuMatch", "playMove"].forEach((name) => {
+      ["startCpuMatch", "joinQueue", "playMove"].forEach((name) => {
         loading.then((ok) => {
           if (ok && fb) fb.functions.httpsCallable(fb.fns, name)({ warm: true }).catch(() => {});
         });
